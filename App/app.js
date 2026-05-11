@@ -1578,92 +1578,24 @@ function fpShowDetail(deskId, date) {
 
 // ── Team Bookings ──────────────────────────────────────────────────────────
 
-// Pre-approved team meetings — in a real system these would come from a
-// facilities/HR approval API. Only these meetings unlock team desk booking.
-const APPROVED_MEETINGS = [
-  {
-    id: 'mtg-001',
-    title: 'Mac Team Sprint Review',
-    team: 'Mac',
-    date: '2026-05-13',
-    floor: 'ground',
-    organiser: 'James Brown',
-    approvalRef: 'WP-2026-0388',
-    approvedBy: 'Workplace & Facilities',
-    maxDesks: 8,
-    notes: 'End-of-sprint demo and retrospective — full team expected.'
-  },
-  {
-    id: 'mtg-002',
-    title: 'Mac Team Quarterly Planning',
-    team: 'Mac',
-    date: '2026-05-20',
-    floor: 'ground',
-    organiser: 'James Brown',
-    approvalRef: 'WP-2026-0412',
-    approvedBy: 'Workplace & Facilities',
-    maxDesks: 8,
-    notes: 'Q2 roadmap review and prioritisation session.'
-  },
-  {
-    id: 'mtg-003',
-    title: 'Mac Tech Roadmap Workshop',
-    team: 'Mac',
-    date: '2026-05-28',
-    floor: 'first',
-    organiser: 'James Brown',
-    approvalRef: 'WP-2026-0441',
-    approvedBy: 'Workplace & Facilities',
-    maxDesks: 6,
-    notes: 'Architecture deep-dive — invite relevant engineers only.'
-  },
-  {
-    id: 'mtg-004',
-    title: 'Data Team Weekly Sync',
-    team: 'Data',
-    date: '2026-05-13',
-    floor: 'ground',
-    organiser: 'Daniel Wilson',
-    approvalRef: 'WP-2026-0391',
-    approvedBy: 'Workplace & Facilities',
-    maxDesks: 6,
-    notes: 'Weekly cross-Data team alignment — bring your sprint updates.'
-  },
-  {
-    id: 'mtg-005',
-    title: 'Data Platform Review',
-    team: 'Data',
-    date: '2026-05-21',
-    floor: 'first',
-    organiser: 'Daniel Wilson',
-    approvalRef: 'WP-2026-0419',
-    approvedBy: 'Workplace & Facilities',
-    maxDesks: 6,
-    notes: 'Review of data platform performance and upcoming migrations.'
-  },
-  {
-    id: 'mtg-006',
-    title: 'Data & Analytics Strategy Day',
-    team: 'Data',
-    date: '2026-05-27',
-    floor: 'first',
-    organiser: 'Daniel Wilson',
-    approvalRef: 'WP-2026-0455',
-    approvedBy: 'Workplace & Facilities',
-    maxDesks: 8,
-    notes: 'Full-day session covering H2 data strategy and tooling decisions.'
-  },
-];
+// ── Team Booking Requests ──────────────────────────────────────────────────
+// Requests flow: pending → approved (desks booked) | cancelled
+// In production, approval would come from a Workplace & Facilities portal.
+// In this prototype, managers can simulate approval for demo purposes.
 
-const TEAM_BOOKINGS_KEY = 'perch_team_bookings';
+const TEAM_REQUESTS_KEY = 'perch_team_requests';
 
-function loadTeamBookings() {
-  try { return JSON.parse(localStorage.getItem(TEAM_BOOKINGS_KEY) || '[]'); } catch { return []; }
+function loadTeamRequests() {
+  try { return JSON.parse(localStorage.getItem(TEAM_REQUESTS_KEY) || '[]'); } catch { return []; }
 }
-function saveTeamBookings(tb) { localStorage.setItem(TEAM_BOOKINGS_KEY, JSON.stringify(tb)); }
+function saveTeamRequests(r) { localStorage.setItem(TEAM_REQUESTS_KEY, JSON.stringify(r)); }
 
-function getTeamBookingForMeeting(meetingId) {
-  return loadTeamBookings().find(tb => tb.meetingId === meetingId) || null;
+function getTeamRequestForDate(date) {
+  return loadTeamRequests().find(r => r.date === date && r.managerId === currentUser.id && r.status !== 'cancelled') || null;
+}
+
+function generateApprovalRef() {
+  return `WP-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 9000) + 1000)}`;
 }
 
 function getMonday(dateStr) {
@@ -1677,17 +1609,11 @@ async function renderTeamBookings() {
   if (!currentUser?.isLineManager) return;
   const container = document.getElementById('view-team-bookings');
 
-  const myMeetings = APPROVED_MEETINGS.filter(m => m.team === currentUser.team);
-  const meetingsByDate = {};
-  myMeetings.forEach(m => { meetingsByDate[m.date] = m; });
-
-  // 4 weeks of Mon–Fri starting from current week's Monday
   const weekStart = getMonday(today());
   const weeks = Array.from({ length: 4 }, (_, w) =>
     Array.from({ length: 5 }, (_, d) => addDays(weekStart, w * 7 + d))
   );
 
-  // Month label(s) for the header
   const firstDate = parseDate(weeks[0][0]);
   const lastDate  = parseDate(weeks[3][4]);
   const monthLabel = firstDate.getMonth() === lastDate.getMonth()
@@ -1696,53 +1622,60 @@ async function renderTeamBookings() {
 
   const calendarRows = weeks.map(days => {
     const cells = days.map(date => {
-      const isPast    = date < today();
-      const isToday_  = date === today();
-      const meeting   = meetingsByDate[date] || null;
-      const tb        = meeting ? getTeamBookingForMeeting(meeting.id) : null;
-      const d         = parseDate(date);
-      const dayNum    = d.getDate();
-      const monthStr  = d.toLocaleDateString('en-GB', { month: 'short' });
+      const isPast   = date < today();
+      const isToday_ = date === today();
+      const req      = getTeamRequestForDate(date);
+      const d        = parseDate(date);
+      const dayNum   = d.getDate();
+      const monthStr = d.toLocaleDateString('en-GB', { month: 'short' });
 
       let cls = 'tb-cal-cell';
-      if (isPast)       cls += ' tb-cal-past';
-      if (isToday_)     cls += ' tb-cal-today';
-      if (tb)           cls += ' tb-cal-booked';
-      else if (meeting) cls += ' tb-cal-meeting';
+      if (isPast)                       cls += ' tb-cal-past';
+      if (isToday_)                     cls += ' tb-cal-today';
+      if (req?.status === 'approved')   cls += ' tb-cal-booked';
+      else if (req?.status === 'pending') cls += ' tb-cal-meeting';
+
+      const dateLabel = `
+        <div class="tb-cal-date-label">
+          <span class="tb-cal-day-num${isToday_ ? ' tb-cal-today-num' : ''}">${dayNum}</span>
+          <span class="tb-cal-mon-str">${monthStr}</span>
+        </div>`;
 
       let body = '';
 
-      if (tb) {
-        const names = tb.slots
+      if (req?.status === 'approved') {
+        const names = req.deskSlots
           .map(s => allUsers.find(u => u.id === s.userId)?.fullName.split(' ')[0] || '?')
           .join(', ');
         body = `
           <div class="tb-cal-meeting-pill">
             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
-            ${meeting.title}
+            ${req.title}
           </div>
+          <div class="tb-cal-ref">${req.approvalRef}</div>
           <div class="tb-cal-names">${names}</div>
-          <button class="tb-cal-action tb-cal-action-cancel" onclick="cancelTeamBooking('${meeting.id}')">Cancel</button>
-        `;
-      } else if (meeting && !isPast) {
-        const avail = getDesks({ floor: meeting.floor, date }).filter(d => d.available && !getDeskSoftHold(d.id, date)).length;
+          <button class="tb-cal-action tb-cal-action-cancel" onclick="promptCancelTeamRequest('${req.id}')">Cancel</button>`;
+
+      } else if (req?.status === 'pending') {
         body = `
-          <div class="tb-cal-meeting-pill tb-cal-pill-pending">${meeting.title}</div>
-          <div class="tb-cal-avail">${avail} desk${avail !== 1 ? 's' : ''} free</div>
-          <button class="tb-cal-action tb-cal-action-book" onclick="showTeamBookingModal('${meeting.id}')">Book desks</button>
-        `;
-      } else if (meeting && isPast) {
-        body = `<div class="tb-cal-meeting-pill tb-cal-pill-past">${meeting.title}</div>`;
+          <div class="tb-cal-meeting-pill tb-cal-pill-pending">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            ${req.title}
+          </div>
+          <div class="tb-cal-avail" style="color:#92400E">Awaiting approval</div>
+          <div style="display:flex;gap:4px;margin-top:auto">
+            <button class="tb-cal-action tb-cal-action-approve" onclick="approveTeamRequest('${req.id}')">Approve ✓</button>
+            <button class="tb-cal-action tb-cal-action-withdraw" onclick="withdrawTeamRequest('${req.id}')">Withdraw</button>
+          </div>`;
+
+      } else if (!isPast) {
+        body = `<button class="tb-cal-action tb-cal-action-request" onclick="showRequestTeamModal('${date}')">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Request desks
+        </button>`;
       }
 
-      return `
-        <div class="${cls}">
-          <div class="tb-cal-date-label">
-            <span class="tb-cal-day-num${isToday_ ? ' tb-cal-today-num' : ''}">${dayNum}</span>
-            <span class="tb-cal-mon-str">${monthStr}</span>
-          </div>
-          ${body}
-        </div>`;
+      return `<div class="${cls}">${dateLabel}${body}</div>`;
     }).join('');
 
     return `<div class="tb-cal-row">${cells}</div>`;
@@ -1751,12 +1684,12 @@ async function renderTeamBookings() {
   container.innerHTML = `
     <div class="page-header">
       <h1>Team Bookings</h1>
-      <p>Book desks for your team against pre-approved building meetings — up to 4 weeks ahead</p>
+      <p>Request desks for your team on any day up to 4 weeks ahead — each request is sent for Workplace &amp; Facilities approval</p>
     </div>
     <div class="tb-legend">
-      <span class="tb-legend-item"><span class="tb-legend-dot tb-legend-dot-meeting"></span>Approved meeting — book desks</span>
-      <span class="tb-legend-item"><span class="tb-legend-dot tb-legend-dot-booked"></span>Desks booked</span>
-      <span class="tb-legend-item"><span class="tb-legend-dot tb-legend-dot-empty"></span>No approved meeting</span>
+      <span class="tb-legend-item"><span class="tb-legend-dot tb-legend-dot-empty"></span>Available — click to request</span>
+      <span class="tb-legend-item"><span class="tb-legend-dot tb-legend-dot-meeting"></span>Pending approval</span>
+      <span class="tb-legend-item"><span class="tb-legend-dot tb-legend-dot-booked"></span>Approved &amp; booked</span>
     </div>
     <div class="tb-calendar">
       <div class="tb-cal-header-row">
@@ -1772,16 +1705,13 @@ async function renderTeamBookings() {
   `;
 }
 
-function showTeamBookingModal(meetingId) {
-  const mtg = APPROVED_MEETINGS.find(m => m.id === meetingId);
-  if (!mtg) return;
-
+function showRequestTeamModal(date) {
   const reports = (currentUser.directReports || [])
     .map(id => allUsers.find(u => u.id === id))
     .filter(Boolean);
 
-  const desksAvail = getDesks({ floor: mtg.floor, date: mtg.date })
-    .filter(d => d.available && !getDeskSoftHold(d.id, mtg.date)).length;
+  const d = parseDate(date);
+  const dateStr = d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' });
 
   const reportRows = reports.map(u => `
     <label class="tb-member-row">
@@ -1791,102 +1721,143 @@ function showTeamBookingModal(meetingId) {
         <div style="font-weight:600;font-size:13px">${u.fullName}</div>
         <div style="font-size:11.5px;color:var(--text-secondary)">${u.role} · ${u.team}</div>
       </div>
-    </label>
-  `).join('');
-
-  const d = parseDate(mtg.date);
-  const dateStr = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+    </label>`).join('');
 
   showModal(`
-    <div class="modal-title">Book Team Desks</div>
-    <div style="background:var(--primary-light);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px">
-      <div style="font-weight:600;font-size:13.5px;color:var(--primary)">${mtg.title}</div>
-      <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${dateStr}</div>
-      <div style="font-size:11.5px;margin-top:4px">
-        <span class="tb-approval-badge">Ref: ${mtg.approvalRef}</span>
-        <span style="margin-left:8px;color:var(--text-muted)">${desksAvail} desk${desksAvail!==1?'s':''} available on this floor</span>
+    <div class="modal-title">Request Team Desks</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">${dateStr}</div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);display:block;margin-bottom:5px">Meeting title</label>
+      <input id="tb-req-title" type="text" placeholder="e.g. Data Team Sprint Review"
+        style="width:100%;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:13px;font-family:inherit;outline:none">
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:14px">
+      <div style="flex:1">
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);display:block;margin-bottom:5px">Floor</label>
+        <select id="tb-req-floor" style="width:100%;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:13px;font-family:inherit;outline:none;background:var(--bg)">
+          <option value="ground">Ground Floor</option>
+          <option value="first">First Floor</option>
+        </select>
       </div>
     </div>
-    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px">Select team members (${reports.length})</div>
-    <div id="tb-member-list" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;margin-bottom:16px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px">Team members</div>
+    <div id="tb-member-list" style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto;margin-bottom:14px">
       ${reportRows}
     </div>
-    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">Desks will be auto-assigned on the ${mtg.floor === 'ground' ? 'Ground' : 'First'} Floor based on team preferences.</div>
+    <div style="margin-bottom:16px">
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);display:block;margin-bottom:5px">Notes <span style="font-weight:400;text-transform:none">(optional)</span></label>
+      <textarea id="tb-req-notes" rows="2" placeholder="Reason for the booking, any special requirements…"
+        style="width:100%;border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:13px;font-family:inherit;outline:none;resize:none"></textarea>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
+      Your request will be sent to Workplace &amp; Facilities for approval. Desks are reserved once approved.
+    </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="hideModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="doTeamBook('${mtg.id}')">Confirm bookings</button>
+      <button class="btn btn-primary" onclick="submitTeamRequest('${date}')">Submit request</button>
     </div>
   `);
 }
 
-function doTeamBook(meetingId) {
-  const mtg = APPROVED_MEETINGS.find(m => m.id === meetingId);
-  if (!mtg) return;
+function submitTeamRequest(date) {
+  const title   = document.getElementById('tb-req-title').value.trim();
+  const floor   = document.getElementById('tb-req-floor').value;
+  const notes   = document.getElementById('tb-req-notes').value.trim();
+  const members = [...document.querySelectorAll('.tb-member-cb:checked')].map(cb => cb.value);
 
-  const checked = [...document.querySelectorAll('.tb-member-cb:checked')].map(cb => cb.value);
-  if (checked.length === 0) { toast('Select at least one team member', 'error'); return; }
-  if (checked.length > mtg.maxDesks) { toast(`This meeting allows a maximum of ${mtg.maxDesks} desks`, 'error'); return; }
+  if (!title)            { toast('Please enter a meeting title', 'error'); return; }
+  if (members.length === 0) { toast('Select at least one team member', 'error'); return; }
 
-  const availableDesks = getDesks({ floor: mtg.floor, date: mtg.date })
-    .filter(d => d.available && !getDeskSoftHold(d.id, mtg.date))
-    .sort((a, b) => scoreDesk(b, currentUser) - scoreDesk(a, currentUser));
+  const req = {
+    id: generateId(),
+    title,
+    date,
+    floor,
+    notes,
+    memberIds: members,
+    status: 'pending',
+    managerId: currentUser.id,
+    approvalRef: null,
+    deskSlots: [],
+    createdAt: new Date().toISOString(),
+    approvedAt: null,
+  };
 
-  if (availableDesks.length < checked.length) {
-    toast(`Only ${availableDesks.length} desks available — reduce team size`, 'error');
-    return;
-  }
-
-  const slots = [];
-  const errors = [];
-
-  checked.forEach((userId, i) => {
-    const desk = availableDesks[i];
-    try {
-      const booking = createBooking({ userId, deskId: desk.id, date: mtg.date, slot: 'full' });
-      slots.push({ userId, deskId: desk.id, bookingId: booking.id });
-    } catch (e) {
-      errors.push(e.message);
-    }
-  });
-
-  if (slots.length > 0) {
-    const tb = loadTeamBookings();
-    tb.push({ id: generateId(), meetingId, managerId: currentUser.id, date: mtg.date, slots, createdAt: new Date().toISOString() });
-    saveTeamBookings(tb);
-  }
+  const all = loadTeamRequests();
+  all.push(req);
+  saveTeamRequests(all);
 
   hideModal();
-  if (errors.length > 0) {
-    toast(`${slots.length} booked, ${errors.length} failed: ${errors[0]}`, 'error');
-  } else {
-    toast(`${slots.length} desk${slots.length !== 1 ? 's' : ''} booked for ${mtg.title}`, 'success');
-  }
+  toast('Request submitted — awaiting Workplace & Facilities approval', 'success');
   renderTeamBookings();
 }
 
-function cancelTeamBooking(meetingId) {
-  const mtg = APPROVED_MEETINGS.find(m => m.id === meetingId);
-  const tb = getTeamBookingForMeeting(meetingId);
-  if (!tb) return;
+function approveTeamRequest(requestId) {
+  const all = loadTeamRequests();
+  const req = all.find(r => r.id === requestId);
+  if (!req) return;
 
+  const availableDesks = getDesks({ floor: req.floor, date: req.date })
+    .filter(d => d.available && !getDeskSoftHold(d.id, req.date))
+    .sort((a, b) => scoreDesk(b, currentUser) - scoreDesk(a, currentUser));
+
+  if (availableDesks.length < req.memberIds.length) {
+    toast(`Only ${availableDesks.length} desks available on that floor — edit request to reduce team size`, 'error');
+    return;
+  }
+
+  const deskSlots = [];
+  req.memberIds.forEach((userId, i) => {
+    const desk = availableDesks[i];
+    try {
+      const booking = createBooking({ userId, deskId: desk.id, date: req.date, slot: 'full' });
+      deskSlots.push({ userId, deskId: desk.id, bookingId: booking.id });
+    } catch {}
+  });
+
+  req.status      = 'approved';
+  req.approvalRef = generateApprovalRef();
+  req.deskSlots   = deskSlots;
+  req.approvedAt  = new Date().toISOString();
+  saveTeamRequests(all);
+
+  toast(`Approved — ${deskSlots.length} desk${deskSlots.length !== 1 ? 's' : ''} booked · Ref ${req.approvalRef}`, 'success');
+  renderTeamBookings();
+}
+
+function withdrawTeamRequest(requestId) {
+  const all = loadTeamRequests();
+  const req = all.find(r => r.id === requestId);
+  if (!req) return;
+  req.status = 'cancelled';
+  saveTeamRequests(all);
+  toast('Request withdrawn', 'info');
+  renderTeamBookings();
+}
+
+function promptCancelTeamRequest(requestId) {
+  const req = loadTeamRequests().find(r => r.id === requestId);
+  if (!req) return;
   showModal(`
     <div class="modal-title">Cancel Team Booking</div>
     <div class="modal-desc">
-      Cancel all ${tb.slots.length} desk booking${tb.slots.length !== 1 ? 's' : ''} for <strong>${mtg?.title}</strong>?
-      <br><span style="font-size:12.5px;color:var(--text-muted)">This will release all desks back to the pool.</span>
+      Cancel all ${req.deskSlots.length} desk booking${req.deskSlots.length !== 1 ? 's' : ''} for <strong>${req.title}</strong>?
+      <br><span style="font-size:12.5px;color:var(--text-muted)">Desks will be released back to the pool.</span>
     </div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="hideModal()">Keep bookings</button>
-      <button class="btn btn-danger" onclick="confirmCancelTeamBooking('${meetingId}')">Cancel all desks</button>
+      <button class="btn btn-danger" onclick="confirmCancelTeamRequest('${requestId}')">Cancel all desks</button>
     </div>
   `);
 }
 
-function confirmCancelTeamBooking(meetingId) {
-  const tb = getTeamBookingForMeeting(meetingId);
-  if (tb) {
-    tb.slots.forEach(s => { try { deleteBooking(s.bookingId); } catch {} });
-    saveTeamBookings(loadTeamBookings().filter(t => t.meetingId !== meetingId));
+function confirmCancelTeamRequest(requestId) {
+  const all = loadTeamRequests();
+  const req = all.find(r => r.id === requestId);
+  if (req) {
+    req.deskSlots.forEach(s => { try { deleteBooking(s.bookingId); } catch {} });
+    req.status = 'cancelled';
+    saveTeamRequests(all);
   }
   hideModal();
   toast('Team booking cancelled — desks released', 'info');
