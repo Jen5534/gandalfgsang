@@ -286,6 +286,25 @@ body {
 }
 .btn-switch:hover { color: #ffffff; }
 
+.btn-admin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  color: rgba(255,255,255,0.35);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: color 0.15s, background 0.15s;
+}
+.btn-admin:hover {
+  color: rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.08);
+}
+
 /* ── Main Content ── */
 .main {
   flex: 1;
