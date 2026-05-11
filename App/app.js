@@ -548,13 +548,6 @@ function isHoldExpired(date, expiryTime) {
 // Simulates a nightly calendar check: generates soft holds for the next
 // working day only (one day in advance). Idempotent.
 function generateAllSoftHolds() {
-  const holds = loadSoftHolds();
-  const existingKeys = new Set(
-    holds.filter(h => h.status !== 'released').map(h => `${h.userId}|${h.date}`)
-  );
-  const bookings = loadBookings();
-  const bookedKeys = new Set(bookings.map(b => `${b.userId}|${b.date}`));
-
   // Find the next working day (skip weekends)
   let offset = 1;
   let nextDate, nextDay;
@@ -563,7 +556,19 @@ function generateAllSoftHolds() {
     nextDay = dayKey(nextDate);
   } while (!WORKDAYS.includes(nextDay));
 
-  let changed = false;
+  // Purge any holds beyond the next working day (stale data from old runs)
+  // and any that are expired or for past dates
+  let holds = loadSoftHolds().filter(h =>
+    h.date <= nextDate &&
+    h.date >= today()
+  );
+
+  const existingKeys = new Set(
+    holds.filter(h => h.status !== 'released').map(h => `${h.userId}|${h.date}`)
+  );
+  const bookings = loadBookings();
+  const bookedKeys = new Set(bookings.map(b => `${b.userId}|${b.date}`));
+
   for (const userPattern of HISTORIC_PATTERNS) {
     const pat = userPattern.patterns.find(p => p.day === nextDay);
     if (!pat) continue;
@@ -585,9 +590,8 @@ function generateAllSoftHolds() {
       createdAt: new Date().toISOString(),
     });
     existingKeys.add(key);
-    changed = true;
   }
-  if (changed) saveSoftHolds(holds);
+  saveSoftHolds(holds); // always save to flush purged stale entries
 }
 
 // Returns the active soft hold for a desk on a date (blocks booking by others)
