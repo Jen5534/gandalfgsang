@@ -1666,88 +1666,109 @@ function getTeamBookingForMeeting(meetingId) {
   return loadTeamBookings().find(tb => tb.meetingId === meetingId) || null;
 }
 
+function getMonday(dateStr) {
+  const d = parseDate(dateStr);
+  const day = d.getDay();
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day));
+  return toDateStr(d);
+}
+
 async function renderTeamBookings() {
   if (!currentUser?.isLineManager) return;
   const container = document.getElementById('view-team-bookings');
 
-  const reports = (currentUser.directReports || [])
-    .map(id => allUsers.find(u => u.id === id))
-    .filter(Boolean);
-
   const myMeetings = APPROVED_MEETINGS.filter(m => m.team === currentUser.team);
+  const meetingsByDate = {};
+  myMeetings.forEach(m => { meetingsByDate[m.date] = m; });
 
-  const meetingCards = myMeetings.map(mtg => {
-    const d = parseDate(mtg.date);
-    const isPast = mtg.date < today();
-    const weekday = d.toLocaleDateString('en-GB', { weekday: 'long' });
-    const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-    const existing = getTeamBookingForMeeting(mtg.id);
-    const floorLabel = mtg.floor === 'ground' ? 'Ground Floor' : 'First Floor';
+  // 4 weeks of Mon–Fri starting from current week's Monday
+  const weekStart = getMonday(today());
+  const weeks = Array.from({ length: 4 }, (_, w) =>
+    Array.from({ length: 5 }, (_, d) => addDays(weekStart, w * 7 + d))
+  );
 
-    let statusHtml, actionHtml;
-    if (existing) {
-      const bookedNames = existing.slots.map(s => {
-        const u = allUsers.find(u => u.id === s.userId);
-        return u ? u.fullName.split(' ')[0] : '?';
-      }).join(', ');
-      statusHtml = `<div class="tb-status tb-status-booked">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-        ${existing.slots.length} desk${existing.slots.length !== 1 ? 's' : ''} booked — ${bookedNames}
-      </div>`;
-      actionHtml = `<button class="btn btn-sm btn-secondary" onclick="cancelTeamBooking('${mtg.id}')">Cancel all</button>`;
-    } else if (isPast) {
-      statusHtml = `<div class="tb-status tb-status-past">Meeting passed</div>`;
-      actionHtml = '';
-    } else {
-      statusHtml = `<div class="tb-status tb-status-pending">Desks not yet booked</div>`;
-      actionHtml = `<button class="btn btn-sm btn-primary" onclick="showTeamBookingModal('${mtg.id}')">Book team desks</button>`;
-    }
+  // Month label(s) for the header
+  const firstDate = parseDate(weeks[0][0]);
+  const lastDate  = parseDate(weeks[3][4]);
+  const monthLabel = firstDate.getMonth() === lastDate.getMonth()
+    ? firstDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+    : `${firstDate.toLocaleDateString('en-GB', { month: 'long' })} – ${lastDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}`;
 
-    return `
-      <div class="card tb-meeting-card ${isPast ? 'tb-past' : ''} ${existing ? 'tb-booked' : ''}">
-        <div class="tb-meeting-header">
-          <div class="tb-date-block">
-            <div class="tb-date-month">${d.toLocaleDateString('en-GB',{month:'short'}).toUpperCase()}</div>
-            <div class="tb-date-day">${d.getDate()}</div>
-            <div class="tb-date-wd">${weekday.slice(0,3)}</div>
+  const calendarRows = weeks.map(days => {
+    const cells = days.map(date => {
+      const isPast    = date < today();
+      const isToday_  = date === today();
+      const meeting   = meetingsByDate[date] || null;
+      const tb        = meeting ? getTeamBookingForMeeting(meeting.id) : null;
+      const d         = parseDate(date);
+      const dayNum    = d.getDate();
+      const monthStr  = d.toLocaleDateString('en-GB', { month: 'short' });
+
+      let cls = 'tb-cal-cell';
+      if (isPast)       cls += ' tb-cal-past';
+      if (isToday_)     cls += ' tb-cal-today';
+      if (tb)           cls += ' tb-cal-booked';
+      else if (meeting) cls += ' tb-cal-meeting';
+
+      let body = '';
+
+      if (tb) {
+        const names = tb.slots
+          .map(s => allUsers.find(u => u.id === s.userId)?.fullName.split(' ')[0] || '?')
+          .join(', ');
+        body = `
+          <div class="tb-cal-meeting-pill">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+            ${meeting.title}
           </div>
-          <div class="tb-meeting-info">
-            <div class="tb-meeting-title">${mtg.title}</div>
-            <div class="tb-meeting-meta">${dateStr} · ${floorLabel}</div>
-            <div class="tb-meeting-meta" style="margin-top:2px">
-              <span class="tb-approval-badge">
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                Approved · ${mtg.approvalRef}
-              </span>
-            </div>
+          <div class="tb-cal-names">${names}</div>
+          <button class="tb-cal-action tb-cal-action-cancel" onclick="cancelTeamBooking('${meeting.id}')">Cancel</button>
+        `;
+      } else if (meeting && !isPast) {
+        const avail = getDesks({ floor: meeting.floor, date }).filter(d => d.available && !getDeskSoftHold(d.id, date)).length;
+        body = `
+          <div class="tb-cal-meeting-pill tb-cal-pill-pending">${meeting.title}</div>
+          <div class="tb-cal-avail">${avail} desk${avail !== 1 ? 's' : ''} free</div>
+          <button class="tb-cal-action tb-cal-action-book" onclick="showTeamBookingModal('${meeting.id}')">Book desks</button>
+        `;
+      } else if (meeting && isPast) {
+        body = `<div class="tb-cal-meeting-pill tb-cal-pill-past">${meeting.title}</div>`;
+      }
+
+      return `
+        <div class="${cls}">
+          <div class="tb-cal-date-label">
+            <span class="tb-cal-day-num${isToday_ ? ' tb-cal-today-num' : ''}">${dayNum}</span>
+            <span class="tb-cal-mon-str">${monthStr}</span>
           </div>
-          <div class="tb-meeting-actions">${actionHtml}</div>
-        </div>
-        ${mtg.notes ? `<div class="tb-meeting-notes">${mtg.notes}</div>` : ''}
-        ${statusHtml}
-      </div>
-    `;
+          ${body}
+        </div>`;
+    }).join('');
+
+    return `<div class="tb-cal-row">${cells}</div>`;
   }).join('');
 
   container.innerHTML = `
     <div class="page-header">
       <h1>Team Bookings</h1>
-      <p>Book desks for your team against pre-approved building meetings</p>
+      <p>Book desks for your team against pre-approved building meetings — up to 4 weeks ahead</p>
     </div>
-    <div class="tb-explainer card one-col" style="margin-bottom:20px">
-      <div class="card-body" style="padding:14px 20px;display:flex;align-items:center;gap:12px">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        <div>
-          <div style="font-weight:600;font-size:13.5px">Manager-only feature</div>
-          <div style="font-size:12.5px;color:var(--text-secondary);margin-top:1px">
-            Team desk bookings are only permitted for pre-approved meetings. Your direct reports are shown below each meeting for selection.
-          </div>
-        </div>
+    <div class="tb-legend">
+      <span class="tb-legend-item"><span class="tb-legend-dot tb-legend-dot-meeting"></span>Approved meeting — book desks</span>
+      <span class="tb-legend-item"><span class="tb-legend-dot tb-legend-dot-booked"></span>Desks booked</span>
+      <span class="tb-legend-item"><span class="tb-legend-dot tb-legend-dot-empty"></span>No approved meeting</span>
+    </div>
+    <div class="tb-calendar">
+      <div class="tb-cal-header-row">
+        <div class="tb-cal-hcell">Mon</div>
+        <div class="tb-cal-hcell">Tue</div>
+        <div class="tb-cal-hcell">Wed</div>
+        <div class="tb-cal-hcell">Thu</div>
+        <div class="tb-cal-hcell">Fri</div>
       </div>
+      <div class="tb-cal-month-label">${monthLabel}</div>
+      ${calendarRows}
     </div>
-    ${myMeetings.length === 0
-      ? `<div class="empty-state"><h3>No approved meetings</h3><p>There are no pre-approved building meetings for your team yet. Contact Workplace &amp; Facilities to request approval.</p></div>`
-      : `<div class="tb-meeting-list">${meetingCards}</div>`}
   `;
 }
 
