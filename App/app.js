@@ -544,8 +544,9 @@ function isHoldExpired(date, expiryTime) {
   return now.getHours() > h || (now.getHours() === h && now.getMinutes() >= m);
 }
 
-// Called on login and dashboard render — creates holds for all users from
-// HISTORIC_PATTERNS for today + next 7 working days. Idempotent.
+// Background process — runs silently on login/dashboard render.
+// Simulates a nightly calendar check: generates soft holds for the next
+// working day only (one day in advance). Idempotent.
 function generateAllSoftHolds() {
   const holds = loadSoftHolds();
   const existingKeys = new Set(
@@ -554,38 +555,37 @@ function generateAllSoftHolds() {
   const bookings = loadBookings();
   const bookedKeys = new Set(bookings.map(b => `${b.userId}|${b.date}`));
 
+  // Find the next working day (skip weekends)
+  let offset = 1;
+  let nextDate, nextDay;
+  do {
+    nextDate = addDays(today(), offset++);
+    nextDay = dayKey(nextDate);
+  } while (!WORKDAYS.includes(nextDay));
+
   let changed = false;
-  let daysChecked = 0, i = 0;
+  for (const userPattern of HISTORIC_PATTERNS) {
+    const pat = userPattern.patterns.find(p => p.day === nextDay);
+    if (!pat) continue;
+    const key = `${userPattern.userId}|${nextDate}`;
+    if (existingKeys.has(key) || bookedKeys.has(key)) continue;
 
-  while (daysChecked <= 7) {
-    const date = addDays(today(), i++);
-    const day = dayKey(date);
-    if (!WORKDAYS.includes(day)) continue;
-    daysChecked++;
-
-    for (const userPattern of HISTORIC_PATTERNS) {
-      const pat = userPattern.patterns.find(p => p.day === day);
-      if (!pat) continue;
-      const key = `${userPattern.userId}|${date}`;
-      if (existingKeys.has(key) || bookedKeys.has(key)) continue;
-
-      const expiryTime = addGraceHour(pat.arrivalTime);
-      holds.push({
-        id: generateId(),
-        userId: userPattern.userId,
-        userName: userPattern.name,
-        deskId: pat.deskId,
-        date,
-        arrivalTime: pat.arrivalTime,
-        expiryTime,
-        consistency: pat.consistency,
-        status: isHoldExpired(date, expiryTime) ? 'expired' : 'active',
-        source: 'routine',
-        createdAt: new Date().toISOString(),
-      });
-      existingKeys.add(key);
-      changed = true;
-    }
+    const expiryTime = addGraceHour(pat.arrivalTime);
+    holds.push({
+      id: generateId(),
+      userId: userPattern.userId,
+      userName: userPattern.name,
+      deskId: pat.deskId,
+      date: nextDate,
+      arrivalTime: pat.arrivalTime,
+      expiryTime,
+      consistency: pat.consistency,
+      status: 'active',
+      source: 'routine',
+      createdAt: new Date().toISOString(),
+    });
+    existingKeys.add(key);
+    changed = true;
   }
   if (changed) saveSoftHolds(holds);
 }
@@ -634,68 +634,8 @@ function releaseHold(holdId) {
 }
 
 function renderRoutineCard() {
-  generateAllSoftHolds();
-
-  const myPattern = HISTORIC_PATTERNS.find(p => p.userId === currentUser.id);
-  const myHoldsThisWeek = loadSoftHolds()
-    .filter(h => h.userId === currentUser.id && h.status === 'active' && h.date >= today())
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 5);
-
-  if (!myPattern && !myHoldsThisWeek.length) return '';
-
-  const patternHtml = myPattern ? myPattern.patterns.map(p => {
-    const desk = DESKS.find(d => d.id === p.deskId);
-    return `<div class="routine-day-card">
-      <div class="routine-day-label">${DAY_LABELS[p.day]}</div>
-      <div class="routine-desk">${p.deskId}</div>
-      <div class="routine-nb">${desk?.neighbourhood?.split(' ')[0] || ''}</div>
-      <div class="routine-conf">${Math.round(p.consistency * 100)}%</div>
-    </div>`;
-  }).join('') : '';
-
-  const holdsHtml = myHoldsThisWeek.map(h => {
-    const desk = DESKS.find(d => d.id === h.deskId);
-    const expired = isHoldExpired(h.date, h.expiryTime);
-    const isToday_ = h.date === today();
-    return `<div class="soft-hold-row">
-      <div class="soft-hold-date-block">
-        <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--primary)">${parseDate(h.date).toLocaleDateString('en-GB',{month:'short'})}</div>
-        <div style="font-size:18px;font-weight:700;line-height:1;color:var(--primary)">${parseDate(h.date).getDate()}</div>
-        <div style="font-size:9px;color:var(--text-muted)">${parseDate(h.date).toLocaleDateString('en-GB',{weekday:'short'})}</div>
-      </div>
-      <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-          <span style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.04em">${h.deskId}</span>
-          <span class="desk-neighbourhood ${nbClass(desk?.neighbourhood||'')}" style="font-size:10px">${desk?.neighbourhood||''}</span>
-        </div>
-        <div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px">
-          ${expired ? 'Grace period ended — desk released' : `Reserved · grace until <strong>${h.expiryTime}</strong>`}
-        </div>
-      </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;align-items:center">
-        ${isToday_ && !expired ? `<button class="btn btn-sm btn-primary" onclick="checkInViaHold('${h.id}')">Scan in</button>` : ''}
-        ${!expired ? `<button class="btn btn-sm btn-secondary" onclick="releaseHold('${h.id}')">Release</button>` : ''}
-      </div>
-    </div>`;
-  }).join('');
-
-  return `<div class="card one-col">
-    <div class="card-header">
-      <span class="card-title">Your Routine</span>
-      <span class="pill pill-blue" style="font-size:11px">Background holds active</span>
-    </div>
-    <div class="card-body" style="padding:14px 20px">
-      ${myPattern ? `
-        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px">Based on your historic patterns — your usual desks are reserved automatically the night before.</p>
-        <div class="routine-pattern" style="margin-bottom:${myHoldsThisWeek.length ? 16 : 0}px">${patternHtml}</div>` : ''}
-      ${myHoldsThisWeek.length ? `
-        <div style="${myPattern ? 'padding-top:16px;border-top:1px solid var(--border);' : ''}">
-          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:10px">Active reservations — scan in to confirm or release if not coming in</div>
-          <div class="soft-hold-list">${holdsHtml}</div>
-        </div>` : ''}
-    </div>
-  </div>`;
+  generateAllSoftHolds(); // background only — no UI
+  return '';
 }
 
 // ── Environmental Comfort ─────────────────────────────────────────────────
@@ -1136,18 +1076,16 @@ function renderDeskCard(desk, myBookingsForDate, mySlots, date) {
   const score = scoreDesk(desk, currentUser);
   const isRecommended = score >= 3 && !isMyDesk && canBookAnything;
 
-  // Check for a colleague's active soft hold on this desk
+  // Soft holds block the desk silently — treated as booked for card display
   const activeSoftHold = isFuture ? getDeskSoftHold(desk.id, date) : null;
-  const isMyHold = activeSoftHold?.userId === currentUser.id;
-  const otherHold = activeSoftHold && !isMyHold ? activeSoftHold : null;
+  const blockedBySoftHold = activeSoftHold && activeSoftHold.userId !== currentUser.id;
 
   let cardClass = 'desk-card';
   if (isMyDesk) cardClass += ' my-desk';
-  else if (isMyHold) cardClass += ' soft-hold-mine available';
-  else if (otherHold) cardClass += ' soft-hold-taken';
+  else if (blockedBySoftHold) cardClass += ' booked';
   else if (!desk.amAvailable && !desk.pmAvailable) cardClass += ' booked';
   else cardClass += ' available';
-  if (isRecommended && !activeSoftHold) cardClass += ' recommended';
+  if (isRecommended && !blockedBySoftHold) cardClass += ' recommended';
 
   const ep = loadEnvPrefs();
   const allRatings = loadEnvRatings();
@@ -1177,8 +1115,8 @@ function renderDeskCard(desk, myBookingsForDate, mySlots, date) {
 
   return `
     <div class="${cardClass}">
-      ${isMyHold ? '<div class="soft-hold-badge">🔔 Your usual desk</div>' : isRecommended ? '<div class="desk-recommended-badge">Recommended</div>' : ''}
-      ${showEnvMatch && !activeSoftHold ? `<div class="env-match-badge">${envMatchCount === 3 ? 'Perfect' : 'Good'} env match</div>` : ''}
+      ${isRecommended ? '<div class="desk-recommended-badge">Recommended</div>' : ''}
+      ${showEnvMatch && !blockedBySoftHold ? `<div class="env-match-badge">${envMatchCount === 3 ? 'Perfect' : 'Good'} env match</div>` : ''}
       <div class="desk-id">${desk.id}</div>
       <div class="desk-neighbourhood ${nbClass(desk.neighbourhood)}">${desk.neighbourhood}</div>
       <div class="desk-features">
@@ -1188,22 +1126,14 @@ function renderDeskCard(desk, myBookingsForDate, mySlots, date) {
       ${envTagsHtml}
       ${peerSignalsHtml}
       <div class="slot-bar">
-        <span class="slot-badge ${desk.amAvailable ? 'slot-free' : 'slot-taken'}">AM</span>
-        <span class="slot-badge ${desk.pmAvailable ? 'slot-free' : 'slot-taken'}">PM</span>
+        <span class="slot-badge ${(desk.amAvailable && !blockedBySoftHold) ? 'slot-free' : 'slot-taken'}">AM</span>
+        <span class="slot-badge ${(desk.pmAvailable && !blockedBySoftHold) ? 'slot-free' : 'slot-taken'}">PM</span>
         ${myDeskBooking ? `<span class="slot-badge slot-mine">${slotShort(myDeskBooking.slot||'full')} — You</span>` : ''}
       </div>
-      ${otherHold ? `
-        <div class="soft-hold-taken-info">
-          <span style="font-size:11px;font-weight:600;color:#92400E">Reserved · ${otherHold.userName?.split(' ')[0] || 'Colleague'}</span>
-          <span style="font-size:11px;color:#92400E"> · grace until ${otherHold.expiryTime}</span>
-        </div>` : ''}
       ${isFuture ? `<div class="desk-actions">
-        ${isMyHold ? `
-          <button class="btn btn-primary btn-sm" onclick="checkInViaHold('${activeSoftHold.id}')">Scan in</button>
-          <button class="btn btn-sm btn-secondary" onclick="releaseHold('${activeSoftHold.id}')">Release</button>` : ''}
-        ${!activeSoftHold && canBookFull  ? `<button class="btn btn-primary btn-sm" onclick="confirmBook('${desk.id}','${date}','full')">Full Day</button>` : ''}
-        ${!activeSoftHold && canBookAm && !canBookFull ? `<button class="btn btn-primary btn-sm" onclick="confirmBook('${desk.id}','${date}','am')">Book AM</button>` : ''}
-        ${!activeSoftHold && canBookPm && !canBookFull ? `<button class="btn btn-secondary btn-sm" onclick="confirmBook('${desk.id}','${date}','pm')">Book PM</button>` : ''}
+        ${!blockedBySoftHold && canBookFull  ? `<button class="btn btn-primary btn-sm" onclick="confirmBook('${desk.id}','${date}','full')">Full Day</button>` : ''}
+        ${!blockedBySoftHold && canBookAm && !canBookFull ? `<button class="btn btn-primary btn-sm" onclick="confirmBook('${desk.id}','${date}','am')">Book AM</button>` : ''}
+        ${!blockedBySoftHold && canBookPm && !canBookFull ? `<button class="btn btn-secondary btn-sm" onclick="confirmBook('${desk.id}','${date}','pm')">Book PM</button>` : ''}
         ${myDeskBooking ? `<button class="btn btn-sm btn-outline-danger" onclick="cancelBookingById('${myDeskBooking.id}')">Cancel</button>` : ''}
         ${myDeskBooking ? `<button class="btn btn-sm btn-secondary" style="font-size:11.5px" onclick="showEnvRatingModal('${desk.id}')">Rate env</button>` : ''}
       </div>` : ''}
@@ -1564,6 +1494,383 @@ function fpShowDetail(deskId, date) {
       <button class="btn btn-secondary" onclick="hideModal()">Close</button>
     </div>
   `);
+}
+
+// ── Agent ──────────────────────────────────────────────────────────────────
+
+let _agentOpen = false;
+let _agentInited = false;
+let _agentHistory = [];
+let _agentPending = null; // { type: 'AWAIT_SLOT'|'AWAIT_DESK'|'AWAIT_CONFIRM_CANCEL', data: {} }
+
+function toggleAgent() {
+  _agentOpen = !_agentOpen;
+  const panel = document.getElementById('agent-panel');
+  const trigger = document.querySelector('.agent-trigger');
+  panel.classList.toggle('hidden', !_agentOpen);
+  trigger.classList.toggle('active', _agentOpen);
+  if (_agentOpen && !_agentInited) {
+    _agentInited = true;
+    agentGreet();
+  }
+  if (_agentOpen) {
+    setTimeout(() => document.getElementById('agent-input').focus(), 100);
+  }
+}
+
+function agentGreet() {
+  const name = currentUser ? currentUser.fullName.split(' ')[0] : 'there';
+  const hold = getMyHoldForDate(today());
+  let greeting = `Hi ${name}! I can help you book desks, check availability, or see who's in.`;
+  if (hold && !hold.checkedIn && !hold.released) {
+    const desk = DESKS.find(d => d.id === hold.deskId);
+    greeting += `<br><br>You have a soft hold on <strong>${hold.deskId}</strong>${desk ? ` (${desk.neighbourhood})` : ''} today until ${hold.expiryTime}.`;
+  }
+  addAgentMsg('bot', greeting, ['Book a desk', "Who's in today?", 'My bookings', 'How busy this week?']);
+}
+
+function addAgentMsg(role, html, chips = []) {
+  _agentHistory.push({ role, html, chips });
+  renderAgentMsgs();
+  updateAgentChips(chips);
+}
+
+function renderAgentMsgs() {
+  const container = document.getElementById('agent-messages');
+  container.innerHTML = _agentHistory.map(m => {
+    if (m.role === 'bot') {
+      return `<div class="agent-msg agent-msg-bot">
+        <div class="agent-avatar-sm">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        </div>
+        <div class="agent-bubble agent-bubble-bot">${m.html}</div>
+      </div>`;
+    } else {
+      return `<div class="agent-msg agent-msg-user">
+        <div class="agent-bubble agent-bubble-user">${m.html}</div>
+      </div>`;
+    }
+  }).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function updateAgentChips(chips) {
+  const el = document.getElementById('agent-chips');
+  el.innerHTML = chips.map(c =>
+    `<button class="agent-chip" onclick="agentChipClick(${JSON.stringify(c)})">${c}</button>`
+  ).join('');
+}
+
+function agentChipClick(text) {
+  document.getElementById('agent-input').value = text;
+  sendAgentMessage();
+}
+
+function sendAgentMessage() {
+  const input = document.getElementById('agent-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  updateAgentChips([]);
+  addAgentMsg('user', text);
+  setTimeout(() => {
+    const reply = _agentPending ? handleAgentPending(text) : processAgentInput(text);
+    addAgentMsg('bot', reply.html, reply.chips || []);
+  }, 200);
+}
+
+// ── NLP helpers ────────────────────────────────────────────────────────────
+
+const DAY_MAP = { mon: 1, monday: 1, tue: 2, tuesday: 2, wed: 3, wednesday: 3, thu: 4, thursday: 4, fri: 5, friday: 5 };
+
+function agentParseDate(text) {
+  const t = text.toLowerCase();
+  if (t.includes('today')) return today();
+  if (t.includes('tomorrow')) {
+    const d = new Date(); d.setDate(d.getDate() + 1);
+    while ([0, 6].includes(d.getDay())) d.setDate(d.getDate() + 1);
+    return toDateStr(d);
+  }
+  for (const [name, dow] of Object.entries(DAY_MAP)) {
+    if (t.includes(name)) {
+      const d = new Date();
+      const diff = (dow - d.getDay() + 7) % 7 || 7;
+      d.setDate(d.getDate() + diff);
+      return toDateStr(d);
+    }
+  }
+  const iso = text.match(/\d{4}-\d{2}-\d{2}/);
+  if (iso) return iso[0];
+  return null;
+}
+
+function agentParseSlot(text) {
+  const t = text.toLowerCase();
+  if (t.includes('morning') || t.includes(' am') || t.includes('half day am')) return 'am';
+  if (t.includes('afternoon') || t.includes(' pm') || t.includes('half day pm')) return 'pm';
+  if (t.includes('full') || t.includes('all day') || t.includes('whole')) return 'full';
+  return null;
+}
+
+function agentParseDeskId(text) {
+  const m = text.toUpperCase().match(/\b([GF]-[WQCL]\d)\b/);
+  return m ? m[1] : null;
+}
+
+function agentFormatDate(dateStr) {
+  if (!dateStr) return '';
+  if (dateStr === today()) return 'today';
+  const d = new Date(dateStr + 'T00:00:00');
+  const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  return `${days[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}`;
+}
+
+// ── Multi-turn pending handler ─────────────────────────────────────────────
+
+function handleAgentPending(text) {
+  const pending = _agentPending;
+
+  if (pending.type === 'AWAIT_SLOT') {
+    const slot = agentParseSlot(text) || (text.toLowerCase().includes('full') ? 'full' : null);
+    if (!slot) {
+      return { html: 'Sorry, I didn\'t catch that. Do you want the <strong>full day</strong>, <strong>morning (AM)</strong>, or <strong>afternoon (PM)</strong>?', chips: ['Full day', 'Morning', 'Afternoon'] };
+    }
+    _agentPending = null;
+    return agentExecuteBook({ ...pending.data, slot });
+  }
+
+  if (pending.type === 'AWAIT_DESK') {
+    const deskId = agentParseDeskId(text);
+    const nb = text.toLowerCase();
+    let resolvedDesk = deskId;
+    if (!resolvedDesk) {
+      const desk = DESKS.find(d => d.neighbourhood.toLowerCase().includes(nb) || nb.includes(d.neighbourhood.toLowerCase()));
+      if (desk) resolvedDesk = desk.id;
+    }
+    if (!resolvedDesk) {
+      _agentPending = null;
+      return { html: 'I couldn\'t find that desk. Try something like <strong>G-W1</strong> or say a neighbourhood name.', chips: ['Window Bank', 'Quiet Zone', 'Collaboration Zone'] };
+    }
+    _agentPending = null;
+    return agentExecuteBook({ ...pending.data, deskId: resolvedDesk });
+  }
+
+  if (pending.type === 'AWAIT_CONFIRM_CANCEL') {
+    const yes = /yes|yep|ok|confirm|sure|cancel it/i.test(text);
+    const no  = /no|nope|keep|don't|dont/i.test(text);
+    if (yes) {
+      const b = pending.data.booking;
+      deleteBooking(b.id);
+      _agentPending = null;
+      if (document.getElementById('view-my-bookings').classList.contains('')) renderMyBookings();
+      return { html: `Done — your booking for <strong>${b.deskId}</strong> on <strong>${agentFormatDate(b.date)}</strong> has been cancelled.`, chips: ['Book a desk', 'My bookings'] };
+    }
+    if (no) {
+      _agentPending = null;
+      return { html: 'No problem, I\'ve kept your booking.', chips: ['My bookings'] };
+    }
+    return { html: 'Please confirm: cancel this booking? (<strong>yes</strong> / <strong>no</strong>)', chips: ['Yes, cancel it', 'No, keep it'] };
+  }
+
+  _agentPending = null;
+  return processAgentInput(text);
+}
+
+// ── Intent handlers ────────────────────────────────────────────────────────
+
+function agentExecuteBook({ date, slot, deskId }) {
+  const desks = getDesks({ date });
+  let target = deskId ? desks.find(d => d.id === deskId) : null;
+
+  if (!deskId) {
+    const ep = loadEnvPrefs();
+    const scored = desks
+      .filter(d => slot === 'am' ? d.amAvailable : slot === 'pm' ? d.pmAvailable : d.available)
+      .filter(d => !getDeskSoftHold(d.id, date) || getDeskSoftHold(d.id, date)?.userId === currentUser.id)
+      .sort((a, b) => scoreDesk(b, currentUser) - scoreDesk(a, currentUser));
+    target = scored[0] || null;
+  }
+
+  if (!target) {
+    return { html: `Sorry, I couldn't find an available desk for <strong>${agentFormatDate(date)}</strong>.`, chips: ['Try another day', 'Show floor plan'] };
+  }
+
+  const slotConflict = slot === 'am' ? !target.amAvailable : slot === 'pm' ? !target.pmAvailable : !target.available;
+  if (slotConflict) {
+    return { html: `<strong>${target.id}</strong> isn't available ${slot === 'full' ? 'all day' : slot === 'am' ? 'this morning' : 'this afternoon'} on <strong>${agentFormatDate(date)}</strong>. Want me to find another desk?`, chips: ['Find me another desk', 'Choose a different day'] };
+  }
+
+  try {
+    const booking = createBooking({ userId: currentUser.id, deskId: target.id, date, slot: slot || 'full' });
+    renderDashboard();
+    return {
+      html: `Booked! <strong>${booking.deskId}</strong> (${booking.desk?.neighbourhood}) on <strong>${agentFormatDate(date)}</strong> — ${slotLabel(slot || 'full')}.`,
+      chips: ['My bookings', 'Book another desk']
+    };
+  } catch (e) {
+    return { html: `Couldn't book: ${e.message}`, chips: ['Try another desk'] };
+  }
+}
+
+function agentHandleBook(text) {
+  let date = agentParseDate(text);
+  let slot = agentParseSlot(text) || 'full';
+  let deskId = agentParseDeskId(text);
+
+  if (!date) {
+    _agentPending = { type: 'AWAIT_SLOT', data: {} };
+    _agentPending = null;
+    return { html: 'Which day would you like to book?', chips: ['Today', 'Tomorrow', 'Monday', 'Wednesday', 'Thursday'] };
+  }
+
+  if (deskId) {
+    return agentExecuteBook({ date, slot, deskId });
+  }
+
+  return agentExecuteBook({ date, slot, deskId: null });
+}
+
+function agentHandleCancel(text) {
+  const date = agentParseDate(text);
+  const deskId = agentParseDeskId(text);
+  const bookings = getBookings({ userId: currentUser.id, upcoming: true }).map(b => enrichBooking(b));
+
+  let candidates = bookings;
+  if (date) candidates = candidates.filter(b => b.date === date);
+  if (deskId) candidates = candidates.filter(b => b.deskId === deskId);
+
+  if (candidates.length === 0) {
+    return { html: 'I couldn\'t find a matching upcoming booking to cancel.', chips: ['My bookings'] };
+  }
+  if (candidates.length > 1) {
+    const list = candidates.map(b => `<li><strong>${b.deskId}</strong> on ${agentFormatDate(b.date)}</li>`).join('');
+    return { html: `You have multiple bookings. Which one do you want to cancel?<ul>${list}</ul>Please be more specific (e.g. "cancel G-W1 on Monday").`, chips: [] };
+  }
+
+  const b = candidates[0];
+  _agentPending = { type: 'AWAIT_CONFIRM_CANCEL', data: { booking: b } };
+  return { html: `Cancel <strong>${b.deskId}</strong> on <strong>${agentFormatDate(b.date)}</strong>? (${slotLabel(b.slot || 'full')})`, chips: ['Yes, cancel it', 'No, keep it'] };
+}
+
+function agentHandleAvail(text) {
+  const date = agentParseDate(text) || today();
+  const desks = getDesks({ date });
+  const free = desks.filter(d => d.available && (!getDeskSoftHold(d.id, date) || getDeskSoftHold(d.id, date)?.userId === currentUser.id));
+  const byNb = {};
+  for (const d of free) {
+    byNb[d.neighbourhood] = (byNb[d.neighbourhood] || 0) + 1;
+  }
+  const lines = Object.entries(byNb).map(([nb, n]) => `<li><strong>${nb}</strong>: ${n} desk${n>1?'s':''} free</li>`).join('');
+  return {
+    html: `On <strong>${agentFormatDate(date)}</strong>, ${free.length} desk${free.length!==1?'s are':' is'} available:<ul>${lines}</ul>`,
+    chips: [`Book a desk for ${agentFormatDate(date)}`, 'See floor plan']
+  };
+}
+
+function agentHandleWhosIn(text) {
+  const date = agentParseDate(text) || today();
+  const bookings = loadBookings().filter(b => b.date === date);
+  const enriched = bookings.map(b => enrichBooking(b)).filter(b => b.user);
+  if (enriched.length === 0) {
+    return { html: `No bookings found for <strong>${agentFormatDate(date)}</strong>.`, chips: ["Who's in tomorrow?", 'Book a desk'] };
+  }
+  const names = enriched.slice(0, 8).map(b => `<li>${b.user.fullName} — ${b.deskId}</li>`).join('');
+  const more = enriched.length > 8 ? `<li>…and ${enriched.length - 8} more</li>` : '';
+  return {
+    html: `<strong>${enriched.length} colleague${enriched.length!==1?'s':''}</strong> booked in on <strong>${agentFormatDate(date)}</strong>:<ul>${names}${more}</ul>`,
+    chips: ['Book my desk too', 'View Who\'s In']
+  };
+}
+
+function agentHandleMyBookings() {
+  const bookings = getBookings({ userId: currentUser.id, upcoming: true }).map(b => enrichBooking(b));
+  if (bookings.length === 0) {
+    return { html: 'You have no upcoming bookings.', chips: ['Book a desk'] };
+  }
+  const lines = bookings.slice(0, 5).map(b => `<li><strong>${b.deskId}</strong> on ${agentFormatDate(b.date)} (${slotLabel(b.slot || 'full')})</li>`).join('');
+  return { html: `Your upcoming bookings:<ul>${lines}</ul>`, chips: ['Cancel a booking', 'Book another desk'] };
+}
+
+function agentHandleConfidence(text) {
+  const date = agentParseDate(text) || today();
+  const wc = calculateConfidence(date);
+  let advice = '';
+  if (wc.score >= 80) advice = 'Plenty of space — you should easily find a good desk.';
+  else if (wc.score >= 60) advice = 'Moderate occupancy — book early to get your preferred spot.';
+  else advice = 'It\'s going to be busy. I\'d recommend booking now.';
+  return {
+    html: `Arrival confidence for <strong>${agentFormatDate(date)}</strong>: <strong style="color:${wc.colour}">${wc.score}%</strong><br>${advice}`,
+    chips: ['Book a desk', 'Check another day']
+  };
+}
+
+function agentHandleRoutine() {
+  const pat = (typeof HISTORIC_PATTERNS !== 'undefined' ? HISTORIC_PATTERNS : []).find(p => p.userId === currentUser?.id);
+  if (!pat) {
+    return { html: 'I don\'t have a recorded routine for you yet. Your patterns will build up over time as you use the office.', chips: ['Book a desk'] };
+  }
+  const days = pat.patterns.map(p => `<li><strong>${p.day.charAt(0).toUpperCase()+p.day.slice(1)}</strong> — ${p.deskId} at ${p.arrivalTime} (${Math.round(p.consistency*100)}% consistent)</li>`).join('');
+  return { html: `Your usual pattern:<ul>${days}</ul>`, chips: ['Book my usual desk', 'Dashboard'] };
+}
+
+function agentHandleNavigate(text) {
+  const t = text.toLowerCase();
+  let view = null;
+  if (t.includes('floor') || t.includes('map') || t.includes('plan')) view = 'floorplan';
+  else if (t.includes('book')) view = 'book';
+  else if (t.includes('my booking') || t.includes('reserv')) view = 'my-bookings';
+  else if (t.includes('who') || t.includes('team')) view = 'whos-in';
+  else if (t.includes('dash')) view = 'dashboard';
+  if (view) {
+    navigate(view);
+    toggleAgent();
+    return { html: `Opening ${view.replace('-', ' ')}…`, chips: [] };
+  }
+  return { html: 'Where would you like to go? I can open Dashboard, Book a Desk, My Bookings, Who\'s In, or Floor Plan.', chips: ['Dashboard', 'Book a Desk', 'Floor Plan'] };
+}
+
+function agentHandleHelp() {
+  return {
+    html: `Here's what I can do:<ul>
+      <li><strong>Book a desk</strong> — "Book a desk for Monday" or "Reserve G-W1 tomorrow"</li>
+      <li><strong>Cancel</strong> — "Cancel my booking on Thursday"</li>
+      <li><strong>Availability</strong> — "What's free on Friday?"</li>
+      <li><strong>Who's in</strong> — "Who's in today?"</li>
+      <li><strong>My bookings</strong> — "Show my bookings"</li>
+      <li><strong>Confidence</strong> — "How busy is Wednesday?"</li>
+      <li><strong>Routine</strong> — "What's my usual desk?"</li>
+      <li><strong>Navigate</strong> — "Show the floor plan"</li>
+    </ul>`,
+    chips: ['Book a desk', "Who's in today?", 'My bookings']
+  };
+}
+
+function processAgentInput(text) {
+  const t = text.toLowerCase();
+
+  if (/\b(help|what can you do|what do you do)\b/.test(t)) return agentHandleHelp();
+
+  if (/\b(book|reserve|grab|get me|need a desk)\b/.test(t)) return agentHandleBook(text);
+
+  if (/\b(cancel|remove|delete|drop)\b.*(booking|desk|reservation)/.test(t) ||
+      /\b(cancel)\b/.test(t) && /\b(my|the)\b/.test(t)) return agentHandleCancel(text);
+
+  if (/\b(free|available|availab|spaces|any desks|what('s| is) (free|open|available))\b/.test(t)) return agentHandleAvail(text);
+
+  if (/\b(who('s| is) in|who comes in|team in|colleagues in|people in)\b/.test(t)) return agentHandleWhosIn(text);
+
+  if (/\b(my bookings?|my reservations?|show bookings?|upcoming)\b/.test(t)) return agentHandleMyBookings();
+
+  if (/\b(busy|quiet|confidence|occupancy|how busy|how full|how packed)\b/.test(t)) return agentHandleConfidence(text);
+
+  if (/\b(routine|usual desk|my desk|normally sit|always sit|pattern)\b/.test(t)) return agentHandleRoutine();
+
+  if (/\b(go to|open|show|take me to|navigate|floor plan|floorplan|dashboard)\b/.test(t)) return agentHandleNavigate(text);
+
+  return {
+    html: 'I\'m not sure I understood that. Try asking me to book a desk, check availability, or see who\'s in.',
+    chips: ['Book a desk', "Who's in today?", 'Help']
+  };
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────

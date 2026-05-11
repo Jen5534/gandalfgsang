@@ -1130,3 +1130,199 @@ input[type="date"]:focus { outline: none; border-color: var(--primary); }
   border: 1px solid #FDE68A;
   white-space: nowrap;
 }
+
+/* ── Agent ──────────────────────────────────────────────────────────────── */
+
+.agent-trigger {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(0,106,77,0.35);
+  z-index: 200;
+  transition: background 0.15s, transform 0.15s;
+}
+.agent-trigger:hover { background: var(--primary-dark); transform: scale(1.05); }
+.agent-trigger.active { background: #334155; }
+
+.agent-panel {
+  position: fixed;
+  bottom: 92px;
+  right: 28px;
+  width: 340px;
+  max-height: 520px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.16);
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.agent-panel.hidden { display: none; }
+
+.agent-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: var(--primary);
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.agent-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.agent-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #86efac;
+  box-shadow: 0 0 0 2px rgba(134,239,172,0.35);
+}
+
+.agent-close-btn {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: color 0.1s;
+}
+.agent-close-btn:hover { color: #fff; }
+
+.agent-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg);
+}
+
+.agent-msg {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+}
+.agent-msg-bot { justify-content: flex-start; }
+.agent-msg-user { justify-content: flex-end; }
+
+.agent-avatar-sm {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.agent-bubble {
+  max-width: 82%;
+  padding: 9px 12px;
+  border-radius: 14px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.agent-bubble ul { margin: 6px 0 0 0; padding-left: 18px; }
+.agent-bubble li { margin-bottom: 3px; }
+
+.agent-bubble-bot {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+  color: var(--text);
+}
+
+.agent-bubble-user {
+  background: var(--primary);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.agent-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px 12px 8px;
+  background: var(--bg);
+  flex-shrink: 0;
+  min-height: 0;
+}
+
+.agent-chip {
+  padding: 5px 11px;
+  border-radius: 99px;
+  border: 1px solid var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s;
+  white-space: nowrap;
+}
+.agent-chip:hover { background: #d1fae5; }
+
+.agent-input-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: #fff;
+  flex-shrink: 0;
+}
+
+.agent-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  background: var(--bg);
+  color: var(--text);
+  transition: border-color 0.15s;
+}
+.agent-input:focus { border-color: var(--primary); }
+
+.agent-send-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.agent-send-btn:hover { background: var(--primary-dark); }

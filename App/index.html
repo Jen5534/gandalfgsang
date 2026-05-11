@@ -77,6 +77,31 @@
 
   <div id="toast-container" class="toast-container"></div>
 
+  <!-- Agent chat panel -->
+  <div id="agent-panel" class="agent-panel hidden">
+    <div class="agent-header">
+      <div class="agent-title">
+        <div class="agent-status-dot"></div>
+        MDB Assistant
+      </div>
+      <button class="agent-close-btn" onclick="toggleAgent()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="agent-messages" class="agent-messages"></div>
+    <div id="agent-chips" class="agent-chips"></div>
+    <div class="agent-input-bar">
+      <input type="text" id="agent-input" class="agent-input" placeholder="Ask me anything…"
+        onkeydown="if(event.key==='Enter')sendAgentMessage()">
+      <button class="agent-send-btn" onclick="sendAgentMessage()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+      </button>
+    </div>
+  </div>
+  <button class="agent-trigger" onclick="toggleAgent()">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+  </button>
+
   <div id="modal-overlay" class="modal-overlay hidden">
     <div class="modal">
       <div id="modal-body" class="modal-body"></div>
