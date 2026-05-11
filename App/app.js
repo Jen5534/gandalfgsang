@@ -250,6 +250,7 @@ function navigate(view) {
   else if (view === 'book') initBookView();
   else if (view === 'my-bookings') renderMyBookings();
   else if (view === 'whos-in') renderWhosIn();
+  else if (view === 'floorplan') renderFloorPlan();
 }
 
 // ── Login ──────────────────────────────────────────────────────────────────
@@ -937,6 +938,141 @@ async function loadWhosIn() {
       </div>
     `).join('')}
   `;
+}
+
+// ── Floor Plan ────────────────────────────────────────────────────────────
+
+let floorPlanDate = null;
+let floorPlanFloor = 'ground';
+
+const DESK_COORDS = {
+  // Ground floor — percentage positions {x, y} on the floor plan image
+  'G-W1': { x: 7,  y: 12 }, 'G-W2': { x: 13, y: 12 },
+  'G-W3': { x: 7,  y: 21 }, 'G-W4': { x: 13, y: 21 },
+  'G-Q1': { x: 78, y: 10 }, 'G-Q2': { x: 84, y: 10 },
+  'G-Q3': { x: 78, y: 19 },
+  'G-C1': { x: 75, y: 50 }, 'G-C2': { x: 81, y: 50 },
+  'G-C3': { x: 75, y: 59 }, 'G-C4': { x: 81, y: 59 },
+  'G-C5': { x: 87, y: 54 },
+  'G-L1': { x: 8,  y: 51 }, 'G-L2': { x: 15, y: 51 },
+  'G-L3': { x: 8,  y: 60 },
+  // First floor
+  'F-W1': { x: 7,  y: 12 }, 'F-W2': { x: 13, y: 12 },
+  'F-W3': { x: 7,  y: 21 },
+  'F-Q1': { x: 78, y: 10 }, 'F-Q2': { x: 84, y: 10 },
+  'F-Q3': { x: 78, y: 19 },
+  'F-C1': { x: 75, y: 50 }, 'F-C2': { x: 81, y: 50 },
+  'F-C3': { x: 75, y: 59 }, 'F-C4': { x: 81, y: 59 },
+  'F-L1': { x: 8,  y: 51 }, 'F-L2': { x: 15, y: 51 },
+  'F-L3': { x: 8,  y: 60 },
+};
+
+function renderFloorPlan() {
+  if (!floorPlanDate) floorPlanDate = today();
+  const container = document.getElementById('view-floorplan');
+
+  const bookings = getBookings({ date: floorPlanDate });
+  const floorBookings = bookings.filter(b => b.desk?.floor === floorPlanFloor);
+  const bookedDeskIds = new Set(floorBookings.map(b => b.deskId));
+  const floorDesks = DESKS.filter(d => d.floor === floorPlanFloor);
+  const imgSrc = floorPlanFloor === 'ground' ? '../floorplans/ground.png' : '../floorplans/first.png';
+
+  const markers = floorDesks.map(desk => {
+    const coords = DESK_COORDS[desk.id];
+    if (!coords) return '';
+    const booking = floorBookings.find(b => b.deskId === desk.id);
+    const isMe = booking?.userId === currentUser.id;
+
+    if (booking?.user) {
+      const u = booking.user;
+      return `
+        <div class="fp-marker fp-marker-booked${isMe ? ' fp-marker-me' : ''}"
+             style="left:${coords.x}%;top:${coords.y}%"
+             onclick="fpShowDetail('${desk.id}','${floorPlanDate}')">
+          <div class="fp-avatar" style="background:${avatarColor(u.fullName)}">${initials(u.fullName)}</div>
+          <div class="fp-label">${u.fullName}</div>
+        </div>`;
+    }
+    return `
+      <div class="fp-marker fp-marker-empty"
+           style="left:${coords.x}%;top:${coords.y}%"
+           onclick="fpShowDetail('${desk.id}','${floorPlanDate}')">
+        <div class="fp-dot"></div>
+        <div class="fp-label fp-label-desk">${desk.id}</div>
+      </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="page-header">
+      <h1>Floor Plan</h1>
+      <p>See who's sitting where</p>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="floor-tabs" style="margin-bottom:0">
+        <button class="floor-tab${floorPlanFloor==='ground'?' active':''}" onclick="fpSetFloor('ground')">Ground Floor</button>
+        <button class="floor-tab${floorPlanFloor==='first'?' active':''}" onclick="fpSetFloor('first')">First Floor</button>
+      </div>
+      <label style="font-size:13px;font-weight:500;color:var(--text-secondary)">Date:</label>
+      <input type="date" value="${floorPlanDate}" onchange="fpSetDate(this.value)">
+      <div style="display:flex;align-items:center;gap:14px;margin-left:auto;font-size:12px;color:var(--text-secondary)">
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:var(--primary);display:inline-block"></span> Booked</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#e2e8f0;border:1.5px solid #cbd5e1;display:inline-block"></span> Available</span>
+        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#FFB800;display:inline-block"></span> Your desk</span>
+      </div>
+    </div>
+
+    <div class="fp-wrap">
+      <img src="${imgSrc}" class="fp-img" alt="${floorPlanFloor} floor plan">
+      ${markers}
+      <div style="position:absolute;bottom:8px;right:10px;font-size:11px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:4px">
+        ${floorBookings.length} booked · ${floorDesks.length - bookedDeskIds.size} available
+      </div>
+    </div>
+  `;
+}
+
+function fpSetFloor(floor) {
+  floorPlanFloor = floor;
+  renderFloorPlan();
+}
+
+function fpSetDate(date) {
+  floorPlanDate = date;
+  renderFloorPlan();
+}
+
+function fpShowDetail(deskId, date) {
+  const desk = DESKS.find(d => d.id === deskId);
+  const bookings = getBookings({ date }).filter(b => b.deskId === deskId);
+  const booking = bookings[0];
+
+  showModal(`
+    <div class="modal-title">${deskId}</div>
+    <div style="margin-bottom:16px">
+      <span class="desk-neighbourhood nb-${desk.neighbourhood.replace(/\s+/g,'')}">${desk.neighbourhood}</span>
+      <span style="margin-left:8px;font-size:12px;color:var(--text-secondary)">${desk.floor === 'ground' ? 'Ground' : 'First'} Floor</span>
+    </div>
+    <div class="desk-features" style="margin-bottom:16px">
+      ${desk.features.map(f => `<span class="feature-tag ft-${f}">${featureLabel(f)}</span>`).join('') || '<span style="color:var(--text-muted);font-size:12px">Standard desk</span>'}
+    </div>
+    ${booking ? `
+      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg);border-radius:var(--radius);margin-bottom:16px">
+        <div class="user-avatar" style="background:${avatarColor(booking.user.fullName)};width:36px;height:36px;font-size:14px">${initials(booking.user.fullName)}</div>
+        <div>
+          <div style="font-weight:600;font-size:14px">${booking.user.fullName}</div>
+          <div style="font-size:12px;color:var(--text-secondary)">${booking.user.role} · ${booking.user.team}</div>
+          <div style="font-size:12px;margin-top:2px"><span class="slot-badge slot-${booking.slot||'full'}">${slotLabel(booking.slot||'full')}</span></div>
+        </div>
+      </div>` : `
+      <div style="padding:12px;background:var(--primary-light);border-radius:var(--radius);margin-bottom:16px;color:var(--primary);font-size:13px;font-weight:500">
+        This desk is available on ${displayShortDate(date)}
+      </div>`}
+    <div class="modal-actions">
+      ${!booking ? `<button class="btn btn-primary" onclick="hideModal();navigate('book')">Book this desk</button>` : ''}
+      <button class="btn btn-secondary" onclick="hideModal()">Close</button>
+    </div>
+  `);
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
