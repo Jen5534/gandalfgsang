@@ -594,6 +594,10 @@ body {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
 }
+.booking-item-hold { border-style: dashed; border-color: #FDE68A; background: #FFFBEB; }
+.booking-item-hold .booking-date-block { background: #FEF3C7; }
+.booking-item-hold .bdate-month { color: #92400E !important; }
+.booking-item-hold .bdate-day   { color: #92400E !important; }
 .booking-info { display: flex; align-items: center; gap: 14px; }
 .booking-date-block {
   width: 46px;
@@ -772,6 +776,7 @@ input[type="date"]:focus { outline: none; border-color: var(--primary); }
 .slot-free  { background: var(--primary-light); color: var(--primary); }
 .slot-taken { background: #F1F5F9; color: #94A3B8; text-decoration: line-through; opacity: 0.7; }
 .slot-mine  { background: var(--primary-light); color: var(--primary); }
+.slot-hold  { background: #FEF3C7; color: #92400E; }
 .slot-am    { background: #E0F2FE; color: #0369A1; }
 .slot-pm    { background: #F3E8FF; color: #7E22CE; }
 .slot-full  { background: var(--primary-light); color: var(--primary); }

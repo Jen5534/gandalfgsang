@@ -630,7 +630,8 @@ function releaseHold(holdId) {
   const holds = loadSoftHolds();
   const hold  = holds.find(h => h.id === holdId);
   if (hold) { hold.status = 'released'; saveSoftHolds(holds); }
-  renderDashboard();
+  toast('Hold released — desk is now free for others', 'info');
+  renderMyBookings();
 }
 
 function renderRoutineCard() {
@@ -1201,19 +1202,72 @@ async function renderMyBookings() {
 
   const bookings = getBookings({ userId: currentUser.id, upcoming: true });
 
+  // Pull in active soft holds for this user (background holds not yet converted to bookings)
+  const myHolds = loadSoftHolds().filter(h =>
+    h.userId === currentUser.id &&
+    h.status === 'active' &&
+    h.date >= today() &&
+    !isHoldExpired(h.date, h.expiryTime) &&
+    !bookings.some(b => b.date === h.date && b.deskId === h.deskId)
+  );
+
+  // Merge and sort by date
+  const combined = [
+    ...bookings.map(b => ({ type: 'booking', data: b })),
+    ...myHolds.map(h => ({ type: 'hold', data: h })),
+  ].sort((a, b) => a.data.date.localeCompare(b.data.date));
+
   container.innerHTML = `
     <div class="page-header">
       <h1>My Bookings</h1>
       <p>Your upcoming desk reservations</p>
     </div>
-    ${bookings.length === 0 ? `
+    ${combined.length === 0 ? `
       <div class="empty-state">
         <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <h3>No upcoming bookings</h3>
         <p>You don't have any desk reservations. Head to Book a Desk to get started.</p>
         <button class="btn btn-primary" onclick="navigate('book')">Book a Desk</button>
       </div>
-    ` : `<div class="booking-list">${bookings.map(b => renderBookingItem(b, true)).join('')}</div>`}
+    ` : `<div class="booking-list">${combined.map(item =>
+        item.type === 'booking'
+          ? renderBookingItem(item.data, true)
+          : renderSoftHoldItem(item.data)
+      ).join('')}</div>`}
+  `;
+}
+
+function renderSoftHoldItem(hold) {
+  const d = parseDate(hold.date);
+  const month = d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
+  const day = d.getDate();
+  const weekday = d.toLocaleDateString('en-GB', { weekday: 'long' });
+  const desk = DESKS.find(dk => dk.id === hold.deskId);
+  const floor = desk?.floor === 'ground' ? 'Ground Floor' : 'First Floor';
+
+  return `
+    <div class="booking-item booking-item-hold">
+      <div class="booking-info">
+        <div class="booking-date-block">
+          <div class="bdate-month">${month}</div>
+          <div class="bdate-day">${day}</div>
+        </div>
+        <div class="booking-details">
+          <div class="booking-desk">
+            ${hold.deskId}
+            <span class="slot-badge slot-hold" style="margin-left:6px;font-size:11px">Auto-reserved</span>
+          </div>
+          <div class="booking-meta">${weekday} · ${floor} · ${desk?.neighbourhood || '–'}</div>
+          <div style="margin-top:5px;font-size:11.5px;color:var(--text-muted)">
+            Based on your usual pattern · held until ${hold.expiryTime}
+          </div>
+        </div>
+      </div>
+      <div class="booking-actions">
+        <button class="btn btn-sm btn-secondary" style="color:var(--danger);border-color:var(--danger)"
+          onclick="confirmReleaseHold('${hold.id}','${hold.deskId}','${hold.date}')">Release</button>
+      </div>
+    </div>
   `;
 }
 
@@ -1263,6 +1317,20 @@ function renderBookingItem(booking, showActions) {
         </div>` : ''}
     </div>
   `;
+}
+
+function confirmReleaseHold(holdId, deskId, date) {
+  showModal(`
+    <div class="modal-title">Release Hold</div>
+    <div class="modal-desc">
+      Release the auto-reserved hold on desk <strong>${deskId}</strong> on <strong>${displayDate(date)}</strong>?<br>
+      <span style="font-size:12.5px;color:var(--text-muted)">The desk will become available for others to book.</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="hideModal()">Keep it</button>
+      <button class="btn btn-danger" onclick="hideModal();releaseHold('${holdId}')">Release</button>
+    </div>
+  `);
 }
 
 function promptCancel(bookingId, deskId, date) {
