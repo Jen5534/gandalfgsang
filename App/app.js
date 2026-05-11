@@ -5,6 +5,7 @@ let bookWeekStart = null;
 let selectedBookDate = null;
 let selectedBookFloor = 'ground';
 let selectedNeighbourhood = '';
+let bookingForUserId      = null;
 let whosInDate = null;
 
 // ── Office location — update lat/lng to your actual office coordinates ──────
@@ -57,6 +58,48 @@ function saveBookings(bookings) {
   localStorage.setItem(BOOKINGS_KEY, JSON.stringify(bookings));
 }
 
+// ── Delegates store ────────────────────────────────────────────────────────
+
+const DELEGATES_KEY = 'mdb_delegates';
+
+function loadDelegates() {
+  try { return JSON.parse(localStorage.getItem(DELEGATES_KEY) || '{}'); } catch { return {}; }
+}
+function saveDelegates(d) { localStorage.setItem(DELEGATES_KEY, JSON.stringify(d)); }
+
+function getMyDelegates() {
+  const ids = loadDelegates()[currentUser.id] || [];
+  return ids.map(id => allUsers.find(u => u.id === id)).filter(Boolean);
+}
+
+function getICanBookFor() {
+  const d = loadDelegates();
+  return allUsers.filter(u => u.id !== currentUser.id && (d[u.id] || []).includes(currentUser.id));
+}
+
+function addDelegate(delegateUserId) {
+  const d = loadDelegates();
+  if (!d[currentUser.id]) d[currentUser.id] = [];
+  if (!d[currentUser.id].includes(delegateUserId)) d[currentUser.id].push(delegateUserId);
+  saveDelegates(d);
+}
+
+function removeDelegate(delegateUserId) {
+  const d = loadDelegates();
+  if (d[currentUser.id]) d[currentUser.id] = d[currentUser.id].filter(id => id !== delegateUserId);
+  saveDelegates(d);
+}
+
+function getBookingForUser() {
+  if (!bookingForUserId) return currentUser;
+  return allUsers.find(u => u.id === bookingForUserId) || currentUser;
+}
+
+function setBookingFor(userId) {
+  bookingForUserId = userId;
+  renderBookView();
+}
+
 function generateId() {
   return (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
 }
@@ -73,21 +116,23 @@ async function fetchUsers() {
   return USERS_DATA;
 }
 
-function getBookings({ userId, date, upcoming } = {}) {
+function getBookings({ userId, date, upcoming, bookedBy } = {}) {
   let list = loadBookings();
-  if (userId) list = list.filter(b => b.userId === userId);
-  if (date)   list = list.filter(b => b.date === date);
+  if (userId)   list = list.filter(b => b.userId === userId);
+  if (date)     list = list.filter(b => b.date === date);
+  if (bookedBy) list = list.filter(b => b.bookedByUserId === bookedBy);
   if (upcoming) list = list.filter(b => b.date >= today()).sort((a, b) => a.date.localeCompare(b.date));
   return list.map(enrichBooking);
 }
 
-function createBooking({ userId, deskId, date, slot }) {
+function createBooking({ userId, deskId, date, slot, bookedByUserId }) {
   const bookings = loadBookings();
   const conflicts = bookings.filter(b => b.deskId === deskId && b.date === date);
   for (const c of conflicts) {
     if (slotsConflict(c.slot || 'full', slot)) throw new Error('That desk slot is already booked');
   }
-  const booking = { id: generateId(), userId, deskId, date, slot, checkedIn: false, checkedInAt: null };
+  const booking = { id: generateId(), userId, deskId, date, slot, checkedIn: false, checkedInAt: null,
+    ...(bookedByUserId && bookedByUserId !== userId ? { bookedByUserId } : {}) };
   bookings.push(booking);
   saveBookings(bookings);
   return enrichBooking(booking);
@@ -966,7 +1011,9 @@ async function renderBookView() {
     return `${s} – ${e}`;
   })();
 
-  const allUpcoming = getBookings({ userId: currentUser.id, upcoming: true });
+  const bookableFor = getICanBookFor();
+  const targetUser  = getBookingForUser();
+  const allUpcoming = getBookings({ userId: targetUser.id, upcoming: true });
   const desks = selectedBookDate ? getDesks({ floor: selectedBookFloor, date: selectedBookDate }) : [];
 
   const userBookingDates = new Set(allUpcoming.map(b => b.date));
@@ -992,6 +1039,24 @@ async function renderBookView() {
       <h1>Book a Desk</h1>
       <p>Find and reserve your workspace</p>
     </div>
+
+    ${bookableFor.length > 0 ? `
+    <div class="delegate-bar">
+      <span class="delegate-bar-label">Booking for</span>
+      <div class="delegate-options">
+        <button class="delegate-opt ${!bookingForUserId ? 'delegate-opt-active' : ''}" onclick="setBookingFor(null)">
+          <div class="user-avatar" style="background:${avatarColor(currentUser.fullName)};width:22px;height:22px;font-size:9px;flex-shrink:0">${initials(currentUser.fullName)}</div>
+          Me
+        </button>
+        ${bookableFor.map(u => `
+          <button class="delegate-opt ${bookingForUserId === u.id ? 'delegate-opt-active' : ''}" onclick="setBookingFor('${u.id}')">
+            <div class="user-avatar" style="background:${avatarColor(u.fullName)};width:22px;height:22px;font-size:9px;flex-shrink:0">${initials(u.fullName)}</div>
+            ${u.fullName.split(' ')[0]}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+    ` : ''}
 
     <div class="card one-col">
       <div class="card-body">
@@ -1031,7 +1096,7 @@ async function renderBookView() {
     <div style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
       <div>
         <span style="font-size:15px;font-weight:600">${displayDate(selectedBookDate)}</span>
-        ${myDeskSummary ? `<span class="pill pill-blue" style="margin-left:8px;font-size:12px">You: ${myDeskSummary}</span>` : ''}
+        ${myDeskSummary ? `<span class="pill pill-blue" style="margin-left:8px;font-size:12px">${targetUser.id !== currentUser.id ? targetUser.fullName.split(' ')[0] : 'You'}: ${myDeskSummary}</span>` : ''}
       </div>
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <div class="floor-tabs">
@@ -1055,7 +1120,7 @@ async function renderBookView() {
     ${Object.entries(grouped).map(([nb, nbDesks]) => `
       <div class="section-header">${nb}</div>
       <div class="desk-grid" style="margin-bottom:8px">
-        ${nbDesks.map(desk => renderDeskCard(desk, myBookingsForDate, mySlots, selectedBookDate)).join('')}
+        ${nbDesks.map(desk => renderDeskCard(desk, myBookingsForDate, mySlots, selectedBookDate, targetUser)).join('')}
       </div>
     `).join('')}
 
@@ -1074,7 +1139,8 @@ async function renderBookView() {
   document.getElementById('today-btn')?.addEventListener('click', () => { bookWeekStart = weekMonday(today()); selectedBookDate = today(); renderBookView(); });
 }
 
-function renderDeskCard(desk, myBookingsForDate, mySlots, date) {
+function renderDeskCard(desk, myBookingsForDate, mySlots, date, bookingUser) {
+  const user = bookingUser || currentUser;
   const myDeskBooking = myBookingsForDate.find(b => b.deskId === desk.id);
   const isMyDesk = !!myDeskBooking;
 
@@ -1084,7 +1150,7 @@ function renderDeskCard(desk, myBookingsForDate, mySlots, date) {
   const canBookAnything = canBookAm || canBookPm;
   const isFuture = date >= today();
 
-  const score = scoreDesk(desk, currentUser);
+  const score = scoreDesk(desk, user);
   const isRecommended = score >= 3 && !isMyDesk && canBookAnything;
 
   // Soft holds block the desk silently — treated as booked for card display
@@ -1169,11 +1235,14 @@ function selectNeighbourhood(value) {
 }
 
 function confirmBook(deskId, date, slot) {
+  const target = getBookingForUser();
+  const forLine = target.id !== currentUser.id
+    ? `<br><span style="font-size:13px;color:var(--primary)">Booking on behalf of <strong>${target.fullName}</strong></span>` : '';
   showModal(`
     <div class="modal-title">Confirm Booking</div>
     <div class="modal-desc">
       Book desk <strong>${deskId}</strong> &mdash; <strong>${slotLabel(slot)}</strong><br>
-      on <strong>${displayDate(date)}</strong>?
+      on <strong>${displayDate(date)}</strong>${forLine}
       ${slot !== 'full' ? `<br><span style="font-size:12px;color:var(--text-muted)">The other half of the day will stay available for others.</span>` : ''}
     </div>
     <div class="modal-actions">
@@ -1185,9 +1254,12 @@ function confirmBook(deskId, date, slot) {
 
 async function doBook(deskId, date, slot) {
   hideModal();
+  const target = getBookingForUser();
   try {
-    createBooking({ userId: currentUser.id, deskId, date, slot });
-    toast(`${deskId} booked — ${slotLabel(slot)} on ${displayShortDate(date)}`, 'success');
+    createBooking({ userId: target.id, deskId, date, slot,
+      ...(target.id !== currentUser.id ? { bookedByUserId: currentUser.id } : {}) });
+    const forStr = target.id !== currentUser.id ? ` for ${target.fullName}` : '';
+    toast(`${deskId} booked${forStr} — ${slotLabel(slot)} on ${displayShortDate(date)}`, 'success');
     renderBookView();
   } catch (e) {
     toast(e.message, 'error');
@@ -1212,7 +1284,9 @@ async function renderMyBookings() {
 
   generateAllSoftHolds(); // ensure holds are fresh before reading
 
-  const bookings = getBookings({ userId: currentUser.id, upcoming: true });
+  const bookings        = getBookings({ userId: currentUser.id, upcoming: true });
+  const madeForOthers   = getBookings({ bookedBy: currentUser.id, upcoming: true })
+    .filter(b => b.userId !== currentUser.id);
 
   // Pull in active soft holds for this user (background holds not yet converted to bookings)
   const myHolds = loadSoftHolds().filter(h =>
@@ -1246,6 +1320,16 @@ async function renderMyBookings() {
           ? renderBookingItem(item.data, true)
           : renderSoftHoldItem(item.data)
       ).join('')}</div>`}
+
+    ${madeForOthers.length > 0 ? `
+    <div style="margin-top:28px">
+      <div class="page-header" style="margin-bottom:12px">
+        <h2 style="font-size:16px;font-weight:700;margin:0">Booked on behalf of others</h2>
+        <p style="margin:2px 0 0">Desks you've reserved as a delegate</p>
+      </div>
+      <div class="booking-list">${madeForOthers.map(b => renderBookingItem(b, true)).join('')}</div>
+    </div>
+    ` : ''}
   `;
 }
 
@@ -1316,6 +1400,12 @@ function renderBookingItem(booking, showActions) {
           ${booking.desk?.features?.length > 0
             ? `<div class="desk-features" style="margin-top:4px">${booking.desk.features.map(f=>`<span class="feature-tag ft-${f}">${featureLabel(f)}</span>`).join('')}</div>`
             : ''}
+          ${booking.userId !== currentUser.id ? `
+            <div class="booking-delegate-tag">
+              <div class="user-avatar" style="background:${avatarColor(booking.user?.fullName||'?')};width:16px;height:16px;font-size:7px;flex-shrink:0">${initials(booking.user?.fullName||'?')}</div>
+              For: ${booking.user?.fullName || 'Unknown'}
+            </div>` : booking.bookedByUserId ? `
+            <div class="booking-delegate-tag">Booked by ${allUsers.find(u => u.id === booking.bookedByUserId)?.fullName || 'a delegate'}</div>` : ''}
           ${checkinHtml ? `<div style="margin-top:6px">${checkinHtml}</div>` : ''}
         </div>
       </div>
@@ -2239,6 +2329,81 @@ function processAgentInput(text) {
     html: 'I\'m not sure I understood that. Try asking me to book a desk, check availability, or see who\'s in.',
     chips: ['Book a desk', "Who's in today?", 'Help']
   };
+}
+
+// ── Delegate management UI ─────────────────────────────────────────────────
+
+function showDelegatesModal() {
+  renderDelegatesModal();
+}
+
+function renderDelegatesModal() {
+  const myDelegates = getMyDelegates();
+  const iCanBookFor  = getICanBookFor();
+  const available    = allUsers.filter(u => u.id !== currentUser.id && !myDelegates.find(d => d.id === u.id));
+
+  showModal(`
+    <div class="modal-title">Delegate Access</div>
+    <div class="modal-desc">Allow colleagues to book desks on your behalf.</div>
+
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px">
+      People who can book for you
+    </div>
+    ${myDelegates.length === 0
+      ? `<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">No delegates added yet.</p>`
+      : myDelegates.map(u => `
+          <div class="delegate-modal-row">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="user-avatar" style="background:${avatarColor(u.fullName)};width:28px;height:28px;font-size:11px;flex-shrink:0">${initials(u.fullName)}</div>
+              <div>
+                <div style="font-size:13px;font-weight:500">${u.fullName}</div>
+                <div style="font-size:12px;color:var(--text-muted)">${u.role} &middot; ${u.team}</div>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-secondary" style="color:var(--danger);border-color:var(--danger)"
+              onclick="removeDelegateAndRefresh('${u.id}')">Remove</button>
+          </div>`).join('')}
+
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin:16px 0 8px">
+      Add a delegate
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <select id="delegate-select" style="flex:1;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--radius);font-size:13px;font-family:inherit;background:white;color:var(--text)">
+        <option value="">Select a colleague…</option>
+        ${available.map(u => `<option value="${u.id}">${u.fullName} — ${u.team}</option>`).join('')}
+      </select>
+      <button class="btn btn-primary" onclick="addDelegateAndRefresh()">Add</button>
+    </div>
+
+    ${iCanBookFor.length > 0 ? `
+      <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px">
+          You can book on behalf of
+        </div>
+        ${iCanBookFor.map(u => `
+          <div style="display:flex;align-items:center;gap:8px;padding:4px 0">
+            <div class="user-avatar" style="background:${avatarColor(u.fullName)};width:22px;height:22px;font-size:9px;flex-shrink:0">${initials(u.fullName)}</div>
+            <span style="font-size:13px;font-weight:500">${u.fullName}</span>
+            <span style="font-size:12px;color:var(--text-muted)">&middot; ${u.team}</span>
+          </div>`).join('')}
+      </div>` : ''}
+
+    <button class="btn btn-secondary" style="width:100%" onclick="hideModal()">Done</button>
+  `);
+}
+
+function addDelegateAndRefresh() {
+  const sel = document.getElementById('delegate-select');
+  if (!sel?.value) { toast('Please select a colleague', 'error'); return; }
+  addDelegate(sel.value);
+  const name = allUsers.find(u => u.id === sel.value)?.fullName;
+  toast(`${name} can now book on your behalf`, 'success');
+  renderDelegatesModal();
+}
+
+function removeDelegateAndRefresh(userId) {
+  removeDelegate(userId);
+  renderDelegatesModal();
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────

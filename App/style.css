@@ -306,6 +306,103 @@ body {
   background: rgba(255,255,255,0.08);
 }
 
+/* ── Delegate Bar ── */
+.delegate-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--primary-light);
+  border-radius: var(--radius);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.delegate-bar-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--primary);
+  white-space: nowrap;
+  margin-right: 2px;
+}
+.delegate-options {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.delegate-opt {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 5px;
+  border-radius: 99px;
+  border: 1.5px solid transparent;
+  background: rgba(0,106,77,0.08);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.delegate-opt:hover { border-color: var(--primary); background: rgba(0,106,77,0.13); }
+.delegate-opt-active {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #fff;
+}
+.delegate-opt-active .user-avatar {
+  background: rgba(255,255,255,0.25) !important;
+  color: #fff !important;
+}
+.delegate-opt .user-avatar {
+  width: 20px;
+  height: 20px;
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+/* Delegate modal rows */
+.delegate-modal-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.delegate-modal-row:last-child { border-bottom: none; }
+.delegate-modal-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.delegate-info-box {
+  background: var(--bg);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.delegate-info-box strong { color: var(--text); }
+
+/* Booking delegate tag */
+.booking-delegate-tag {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+.booking-delegate-tag .user-avatar {
+  width: 16px;
+  height: 16px;
+  font-size: 7px;
+  flex-shrink: 0;
+}
+
 /* ── Main Content ── */
 .main {
   flex: 1;
