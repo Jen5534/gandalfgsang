@@ -98,6 +98,14 @@ const USERS_DATA = [
     "location": "London",
     "team": "Mac",
     "role": "Lead Engineer",
+    "isLineManager": true,
+    "directReports": [
+      "1c0b3f97-92b4-4269-b8ec-2aba48797603",
+      "ce2bbc48-63e8-4090-990a-039f0ec34a34",
+      "b865fb44-0227-4b72-bb74-b254e1477f83",
+      "8e7aee3b-5237-426f-9184-15e391f65e4d",
+      "6e3bd5e6-8999-47b5-8dcb-7084538a4ec5"
+    ],
     "lineManager": {
       "name": "James Brown",
       "email": "james.brown@thebank.com"
@@ -345,6 +353,13 @@ const USERS_DATA = [
     "location": "Edinburgh",
     "team": "Data",
     "role": "Lead",
+    "isLineManager": true,
+    "directReports": [
+      "9226ec2f-e87b-4b2b-96c7-340bcd6ff8f7",
+      "df338238-5bd5-48ed-bbdb-d5e95856100e",
+      "38b9219c-b2fd-4e8c-b8ce-fb7aaa3094f1",
+      "7b490075-4e45-4c0e-ab34-1852752041b9"
+    ],
     "lineManager": {
       "name": "Daniel Wilson",
       "email": "daniel.wilson@thebank.com"

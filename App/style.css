@@ -1136,6 +1136,91 @@ input[type="date"]:focus { outline: none; border-color: var(--primary); }
   white-space: nowrap;
 }
 
+/* ── Team Bookings ──────────────────────────────────────────────────────── */
+
+.tb-meeting-list { display: flex; flex-direction: column; gap: 16px; }
+
+.tb-meeting-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--card-bg);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  transition: opacity 0.15s;
+}
+.tb-meeting-card.tb-past { opacity: 0.55; }
+.tb-meeting-card.tb-booked { border-color: var(--primary); }
+
+.tb-meeting-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 18px 20px 14px;
+}
+
+.tb-date-block {
+  text-align: center;
+  background: var(--primary-light);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  flex-shrink: 0;
+  min-width: 52px;
+}
+.tb-date-month { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--primary); }
+.tb-date-day   { font-size: 22px; font-weight: 700; color: var(--primary); line-height: 1.1; }
+.tb-date-wd    { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+
+.tb-meeting-info { flex: 1; min-width: 0; }
+.tb-meeting-title { font-size: 15px; font-weight: 700; }
+.tb-meeting-meta  { font-size: 12.5px; color: var(--text-secondary); margin-top: 3px; }
+.tb-meeting-actions { flex-shrink: 0; }
+
+.tb-approval-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+.tb-meeting-notes {
+  padding: 0 20px 12px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.tb-status {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 20px;
+  font-size: 12.5px;
+  font-weight: 500;
+  border-top: 1px solid var(--border);
+}
+.tb-status-booked  { background: var(--primary-light); color: var(--primary); }
+.tb-status-pending { background: #FEF3C7; color: #92400E; }
+.tb-status-past    { background: var(--bg); color: var(--text-muted); }
+
+.tb-member-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.tb-member-row:hover { background: var(--primary-light); }
+.tb-member-cb { accent-color: var(--primary); width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+
 /* ── Agent ──────────────────────────────────────────────────────────────── */
 
 .agent-trigger {

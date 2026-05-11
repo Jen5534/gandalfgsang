@@ -261,6 +261,7 @@ function navigate(view) {
   else if (view === 'my-bookings') renderMyBookings();
   else if (view === 'whos-in') renderWhosIn();
   else if (view === 'floorplan') renderFloorPlan();
+  else if (view === 'team-bookings') renderTeamBookings();
 }
 
 // ── Login ──────────────────────────────────────────────────────────────────
@@ -280,6 +281,11 @@ function loginAs(user) {
   av.style.background = avatarColor(user.fullName);
   document.getElementById('sidebar-name').textContent = user.fullName;
   document.getElementById('sidebar-role').textContent = `${user.role} · ${user.team}`;
+
+  // Show Team Bookings nav only for line managers
+  document.querySelectorAll('.nav-item-manager').forEach(el => {
+    el.style.display = user.isLineManager ? '' : 'none';
+  });
 
   navigate('dashboard');
 }
@@ -1568,6 +1574,302 @@ function fpShowDetail(deskId, date) {
       <button class="btn btn-secondary" onclick="hideModal()">Close</button>
     </div>
   `);
+}
+
+// ── Team Bookings ──────────────────────────────────────────────────────────
+
+// Pre-approved team meetings — in a real system these would come from a
+// facilities/HR approval API. Only these meetings unlock team desk booking.
+const APPROVED_MEETINGS = [
+  {
+    id: 'mtg-001',
+    title: 'Mac Team Sprint Review',
+    team: 'Mac',
+    date: '2026-05-13',
+    floor: 'ground',
+    organiser: 'James Brown',
+    approvalRef: 'WP-2026-0388',
+    approvedBy: 'Workplace & Facilities',
+    maxDesks: 8,
+    notes: 'End-of-sprint demo and retrospective — full team expected.'
+  },
+  {
+    id: 'mtg-002',
+    title: 'Mac Team Quarterly Planning',
+    team: 'Mac',
+    date: '2026-05-20',
+    floor: 'ground',
+    organiser: 'James Brown',
+    approvalRef: 'WP-2026-0412',
+    approvedBy: 'Workplace & Facilities',
+    maxDesks: 8,
+    notes: 'Q2 roadmap review and prioritisation session.'
+  },
+  {
+    id: 'mtg-003',
+    title: 'Mac Tech Roadmap Workshop',
+    team: 'Mac',
+    date: '2026-05-28',
+    floor: 'first',
+    organiser: 'James Brown',
+    approvalRef: 'WP-2026-0441',
+    approvedBy: 'Workplace & Facilities',
+    maxDesks: 6,
+    notes: 'Architecture deep-dive — invite relevant engineers only.'
+  },
+  {
+    id: 'mtg-004',
+    title: 'Data Team Weekly Sync',
+    team: 'Data',
+    date: '2026-05-13',
+    floor: 'ground',
+    organiser: 'Daniel Wilson',
+    approvalRef: 'WP-2026-0391',
+    approvedBy: 'Workplace & Facilities',
+    maxDesks: 6,
+    notes: 'Weekly cross-Data team alignment — bring your sprint updates.'
+  },
+  {
+    id: 'mtg-005',
+    title: 'Data Platform Review',
+    team: 'Data',
+    date: '2026-05-21',
+    floor: 'first',
+    organiser: 'Daniel Wilson',
+    approvalRef: 'WP-2026-0419',
+    approvedBy: 'Workplace & Facilities',
+    maxDesks: 6,
+    notes: 'Review of data platform performance and upcoming migrations.'
+  },
+  {
+    id: 'mtg-006',
+    title: 'Data & Analytics Strategy Day',
+    team: 'Data',
+    date: '2026-05-27',
+    floor: 'first',
+    organiser: 'Daniel Wilson',
+    approvalRef: 'WP-2026-0455',
+    approvedBy: 'Workplace & Facilities',
+    maxDesks: 8,
+    notes: 'Full-day session covering H2 data strategy and tooling decisions.'
+  },
+];
+
+const TEAM_BOOKINGS_KEY = 'perch_team_bookings';
+
+function loadTeamBookings() {
+  try { return JSON.parse(localStorage.getItem(TEAM_BOOKINGS_KEY) || '[]'); } catch { return []; }
+}
+function saveTeamBookings(tb) { localStorage.setItem(TEAM_BOOKINGS_KEY, JSON.stringify(tb)); }
+
+function getTeamBookingForMeeting(meetingId) {
+  return loadTeamBookings().find(tb => tb.meetingId === meetingId) || null;
+}
+
+async function renderTeamBookings() {
+  if (!currentUser?.isLineManager) return;
+  const container = document.getElementById('view-team-bookings');
+
+  const reports = (currentUser.directReports || [])
+    .map(id => allUsers.find(u => u.id === id))
+    .filter(Boolean);
+
+  const myMeetings = APPROVED_MEETINGS.filter(m => m.team === currentUser.team);
+
+  const meetingCards = myMeetings.map(mtg => {
+    const d = parseDate(mtg.date);
+    const isPast = mtg.date < today();
+    const weekday = d.toLocaleDateString('en-GB', { weekday: 'long' });
+    const dateStr = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+    const existing = getTeamBookingForMeeting(mtg.id);
+    const floorLabel = mtg.floor === 'ground' ? 'Ground Floor' : 'First Floor';
+
+    let statusHtml, actionHtml;
+    if (existing) {
+      const bookedNames = existing.slots.map(s => {
+        const u = allUsers.find(u => u.id === s.userId);
+        return u ? u.fullName.split(' ')[0] : '?';
+      }).join(', ');
+      statusHtml = `<div class="tb-status tb-status-booked">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
+        ${existing.slots.length} desk${existing.slots.length !== 1 ? 's' : ''} booked — ${bookedNames}
+      </div>`;
+      actionHtml = `<button class="btn btn-sm btn-secondary" onclick="cancelTeamBooking('${mtg.id}')">Cancel all</button>`;
+    } else if (isPast) {
+      statusHtml = `<div class="tb-status tb-status-past">Meeting passed</div>`;
+      actionHtml = '';
+    } else {
+      statusHtml = `<div class="tb-status tb-status-pending">Desks not yet booked</div>`;
+      actionHtml = `<button class="btn btn-sm btn-primary" onclick="showTeamBookingModal('${mtg.id}')">Book team desks</button>`;
+    }
+
+    return `
+      <div class="card tb-meeting-card ${isPast ? 'tb-past' : ''} ${existing ? 'tb-booked' : ''}">
+        <div class="tb-meeting-header">
+          <div class="tb-date-block">
+            <div class="tb-date-month">${d.toLocaleDateString('en-GB',{month:'short'}).toUpperCase()}</div>
+            <div class="tb-date-day">${d.getDate()}</div>
+            <div class="tb-date-wd">${weekday.slice(0,3)}</div>
+          </div>
+          <div class="tb-meeting-info">
+            <div class="tb-meeting-title">${mtg.title}</div>
+            <div class="tb-meeting-meta">${dateStr} · ${floorLabel}</div>
+            <div class="tb-meeting-meta" style="margin-top:2px">
+              <span class="tb-approval-badge">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Approved · ${mtg.approvalRef}
+              </span>
+            </div>
+          </div>
+          <div class="tb-meeting-actions">${actionHtml}</div>
+        </div>
+        ${mtg.notes ? `<div class="tb-meeting-notes">${mtg.notes}</div>` : ''}
+        ${statusHtml}
+      </div>
+    `;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="page-header">
+      <h1>Team Bookings</h1>
+      <p>Book desks for your team against pre-approved building meetings</p>
+    </div>
+    <div class="tb-explainer card one-col" style="margin-bottom:20px">
+      <div class="card-body" style="padding:14px 20px;display:flex;align-items:center;gap:12px">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <div>
+          <div style="font-weight:600;font-size:13.5px">Manager-only feature</div>
+          <div style="font-size:12.5px;color:var(--text-secondary);margin-top:1px">
+            Team desk bookings are only permitted for pre-approved meetings. Your direct reports are shown below each meeting for selection.
+          </div>
+        </div>
+      </div>
+    </div>
+    ${myMeetings.length === 0
+      ? `<div class="empty-state"><h3>No approved meetings</h3><p>There are no pre-approved building meetings for your team yet. Contact Workplace &amp; Facilities to request approval.</p></div>`
+      : `<div class="tb-meeting-list">${meetingCards}</div>`}
+  `;
+}
+
+function showTeamBookingModal(meetingId) {
+  const mtg = APPROVED_MEETINGS.find(m => m.id === meetingId);
+  if (!mtg) return;
+
+  const reports = (currentUser.directReports || [])
+    .map(id => allUsers.find(u => u.id === id))
+    .filter(Boolean);
+
+  const desksAvail = getDesks({ floor: mtg.floor, date: mtg.date })
+    .filter(d => d.available && !getDeskSoftHold(d.id, mtg.date)).length;
+
+  const reportRows = reports.map(u => `
+    <label class="tb-member-row">
+      <input type="checkbox" class="tb-member-cb" value="${u.id}" checked>
+      <div class="user-avatar" style="background:${avatarColor(u.fullName)};width:30px;height:30px;font-size:12px;flex-shrink:0">${initials(u.fullName)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px">${u.fullName}</div>
+        <div style="font-size:11.5px;color:var(--text-secondary)">${u.role} · ${u.team}</div>
+      </div>
+    </label>
+  `).join('');
+
+  const d = parseDate(mtg.date);
+  const dateStr = d.toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'long' });
+
+  showModal(`
+    <div class="modal-title">Book Team Desks</div>
+    <div style="background:var(--primary-light);border-radius:var(--radius);padding:10px 14px;margin-bottom:16px">
+      <div style="font-weight:600;font-size:13.5px;color:var(--primary)">${mtg.title}</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${dateStr}</div>
+      <div style="font-size:11.5px;margin-top:4px">
+        <span class="tb-approval-badge">Ref: ${mtg.approvalRef}</span>
+        <span style="margin-left:8px;color:var(--text-muted)">${desksAvail} desk${desksAvail!==1?'s':''} available on this floor</span>
+      </div>
+    </div>
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px">Select team members (${reports.length})</div>
+    <div id="tb-member-list" style="display:flex;flex-direction:column;gap:6px;max-height:240px;overflow-y:auto;margin-bottom:16px">
+      ${reportRows}
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">Desks will be auto-assigned on the ${mtg.floor === 'ground' ? 'Ground' : 'First'} Floor based on team preferences.</div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="hideModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="doTeamBook('${mtg.id}')">Confirm bookings</button>
+    </div>
+  `);
+}
+
+function doTeamBook(meetingId) {
+  const mtg = APPROVED_MEETINGS.find(m => m.id === meetingId);
+  if (!mtg) return;
+
+  const checked = [...document.querySelectorAll('.tb-member-cb:checked')].map(cb => cb.value);
+  if (checked.length === 0) { toast('Select at least one team member', 'error'); return; }
+  if (checked.length > mtg.maxDesks) { toast(`This meeting allows a maximum of ${mtg.maxDesks} desks`, 'error'); return; }
+
+  const availableDesks = getDesks({ floor: mtg.floor, date: mtg.date })
+    .filter(d => d.available && !getDeskSoftHold(d.id, mtg.date))
+    .sort((a, b) => scoreDesk(b, currentUser) - scoreDesk(a, currentUser));
+
+  if (availableDesks.length < checked.length) {
+    toast(`Only ${availableDesks.length} desks available — reduce team size`, 'error');
+    return;
+  }
+
+  const slots = [];
+  const errors = [];
+
+  checked.forEach((userId, i) => {
+    const desk = availableDesks[i];
+    try {
+      const booking = createBooking({ userId, deskId: desk.id, date: mtg.date, slot: 'full' });
+      slots.push({ userId, deskId: desk.id, bookingId: booking.id });
+    } catch (e) {
+      errors.push(e.message);
+    }
+  });
+
+  if (slots.length > 0) {
+    const tb = loadTeamBookings();
+    tb.push({ id: generateId(), meetingId, managerId: currentUser.id, date: mtg.date, slots, createdAt: new Date().toISOString() });
+    saveTeamBookings(tb);
+  }
+
+  hideModal();
+  if (errors.length > 0) {
+    toast(`${slots.length} booked, ${errors.length} failed: ${errors[0]}`, 'error');
+  } else {
+    toast(`${slots.length} desk${slots.length !== 1 ? 's' : ''} booked for ${mtg.title}`, 'success');
+  }
+  renderTeamBookings();
+}
+
+function cancelTeamBooking(meetingId) {
+  const mtg = APPROVED_MEETINGS.find(m => m.id === meetingId);
+  const tb = getTeamBookingForMeeting(meetingId);
+  if (!tb) return;
+
+  showModal(`
+    <div class="modal-title">Cancel Team Booking</div>
+    <div class="modal-desc">
+      Cancel all ${tb.slots.length} desk booking${tb.slots.length !== 1 ? 's' : ''} for <strong>${mtg?.title}</strong>?
+      <br><span style="font-size:12.5px;color:var(--text-muted)">This will release all desks back to the pool.</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="hideModal()">Keep bookings</button>
+      <button class="btn btn-danger" onclick="confirmCancelTeamBooking('${meetingId}')">Cancel all desks</button>
+    </div>
+  `);
+}
+
+function confirmCancelTeamBooking(meetingId) {
+  const tb = getTeamBookingForMeeting(meetingId);
+  if (tb) {
+    tb.slots.forEach(s => { try { deleteBooking(s.bookingId); } catch {} });
+    saveTeamBookings(loadTeamBookings().filter(t => t.meetingId !== meetingId));
+  }
+  hideModal();
+  toast('Team booking cancelled — desks released', 'info');
+  renderTeamBookings();
 }
 
 // ── Agent ──────────────────────────────────────────────────────────────────
