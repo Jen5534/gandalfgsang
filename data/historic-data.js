@@ -106,6 +106,7 @@ const HISTORIC_PATTERNS = [
     name: 'Abigail Livingston',
     patterns: [
       { day: 'monday',    arrivalTime: '08:00', deskId: 'G-L3', consistency: 0.93 },
+      { day: 'tuesday',   arrivalTime: '08:00', deskId: 'G-L3', consistency: 0.87 },
       { day: 'wednesday', arrivalTime: '08:00', deskId: 'G-L3', consistency: 0.89 },
       { day: 'thursday',  arrivalTime: '08:15', deskId: 'G-L3', consistency: 0.84 },
       { day: 'friday',    arrivalTime: '08:30', deskId: 'F-L1', consistency: 0.70 },

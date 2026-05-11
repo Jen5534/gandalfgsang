@@ -1204,6 +1204,8 @@ async function renderMyBookings() {
   const container = document.getElementById('view-my-bookings');
   container.innerHTML = '<div style="color:#94a3b8;padding:20px">Loading...</div>';
 
+  generateAllSoftHolds(); // ensure holds are fresh before reading
+
   const bookings = getBookings({ userId: currentUser.id, upcoming: true });
 
   // Pull in active soft holds for this user (background holds not yet converted to bookings)
