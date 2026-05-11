@@ -9,26 +9,24 @@
 <body>
 
   <div id="login-screen" class="login-screen">
-    <div class="login-card">
+    <div class="login-card sso-card">
       <div class="login-logo">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#7C3AED"/><rect x="6" y="10" width="20" height="14" rx="2" fill="white" opacity="0.2"/><rect x="6" y="10" width="20" height="14" rx="2" stroke="white" stroke-width="1.5"/><rect x="10" y="14" width="12" height="2" rx="1" fill="white"/><rect x="10" y="18" width="8" height="2" rx="1" fill="white"/><rect x="13" y="24" width="6" height="2" rx="1" fill="white"/><rect x="15" y="22" width="2" height="2" fill="white"/></svg>
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#006A4D"/><rect x="10" y="5" width="12" height="8" rx="1.5" fill="white"/><rect x="15" y="13" width="2" height="3" fill="white"/><rect x="3" y="16" width="26" height="2.5" rx="1" fill="white"/><rect x="5" y="18.5" width="3" height="7.5" rx="1" fill="white"/><rect x="24" y="18.5" width="3" height="7.5" rx="1" fill="white"/></svg>
         MDB
       </div>
       <p class="login-subtitle">My Desk Booker</p>
-      <div class="form-group">
-        <label for="user-select">Select your name to sign in</label>
-        <select id="user-select">
-          <option value="">-- Choose employee --</option>
-        </select>
+      <div class="sso-status" id="sso-status">
+        <div class="sso-spinner" id="sso-spinner"></div>
+        <span id="sso-message">Authenticating with SSO&hellip;</span>
       </div>
-      <button id="login-btn" class="btn btn-primary btn-full">Sign In</button>
+      <button class="btn btn-primary btn-full" id="sso-signin-btn" style="display:none" onclick="ssoLogin()">Sign in again</button>
     </div>
   </div>
 
   <div id="app" class="app hidden">
     <aside class="sidebar">
       <div class="sidebar-header">
-        <svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#7C3AED"/><rect x="6" y="10" width="20" height="14" rx="2" fill="white" opacity="0.2"/><rect x="6" y="10" width="20" height="14" rx="2" stroke="white" stroke-width="1.5"/><rect x="10" y="14" width="12" height="2" rx="1" fill="white"/><rect x="10" y="18" width="8" height="2" rx="1" fill="white"/><rect x="13" y="24" width="6" height="2" rx="1" fill="white"/><rect x="15" y="22" width="2" height="2" fill="white"/></svg>
+        <svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="rgba(255,255,255,0.15)"/><rect x="10" y="5" width="12" height="8" rx="1.5" fill="white"/><rect x="15" y="13" width="2" height="3" fill="white"/><rect x="3" y="16" width="26" height="2.5" rx="1" fill="white"/><rect x="5" y="18.5" width="3" height="7.5" rx="1" fill="white"/><rect x="24" y="18.5" width="3" height="7.5" rx="1" fill="white"/></svg>
         <span>MDB</span>
       </div>
       <nav class="sidebar-nav">
@@ -57,7 +55,10 @@
             <div class="user-role" id="sidebar-role"></div>
           </div>
         </div>
-        <button class="btn-signout" id="logout-btn">Sign out</button>
+        <div class="sidebar-footer-btns">
+          <button class="btn-signout" id="logout-btn">Sign out</button>
+          <button class="btn-switch" id="switch-btn">Switch account</button>
+        </div>
       </div>
     </aside>
 

@@ -257,15 +257,9 @@ function navigate(view) {
 async function initLogin() {
   allUsers = await fetchUsers();
   allUsers.sort((a, b) => a.fullName.localeCompare(b.fullName));
-  const sel = document.getElementById('user-select');
-  sel.innerHTML = '<option value="">-- Choose employee --</option>' +
-    allUsers.map(u => `<option value="${u.id}">${u.fullName} — ${u.role}, ${u.team}</option>`).join('');
 }
 
-function login() {
-  const sel = document.getElementById('user-select');
-  const user = allUsers.find(u => u.id === sel.value);
-  if (!user) { toast('Please select an employee', 'error'); return; }
+function loginAs(user) {
   currentUser = user;
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
@@ -279,11 +273,59 @@ function login() {
   navigate('dashboard');
 }
 
+async function ssoLogin() {
+  const msg = document.getElementById('sso-message');
+  const spinner = document.getElementById('sso-spinner');
+  const signinBtn = document.getElementById('sso-signin-btn');
+  spinner.style.display = 'block';
+  signinBtn.style.display = 'none';
+  msg.textContent = 'Authenticating with SSO…';
+  try {
+    if (allUsers.length === 0) await initLogin();
+    msg.textContent = 'Signing you in…';
+    await new Promise(r => setTimeout(r, 600));
+    loginAs(allUsers[0]);
+  } catch (e) {
+    spinner.style.display = 'none';
+    msg.textContent = 'Authentication failed. Please try again.';
+    signinBtn.style.display = 'block';
+  }
+}
+
 function logout() {
   currentUser = null;
   document.getElementById('app').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
-  document.getElementById('user-select').value = '';
+  const msg = document.getElementById('sso-message');
+  const spinner = document.getElementById('sso-spinner');
+  const signinBtn = document.getElementById('sso-signin-btn');
+  spinner.style.display = 'none';
+  msg.textContent = 'You have been signed out.';
+  signinBtn.style.display = 'block';
+}
+
+function switchAccount() {
+  showModal(`
+    <div class="modal-title">Switch Account</div>
+    <div class="modal-desc">Select an account to sign in as:</div>
+    <div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
+      ${allUsers.map(u => `
+        <button class="switch-user-btn" onclick="switchUser('${u.id}')">
+          <div class="user-avatar" style="background:${avatarColor(u.fullName)};width:30px;height:30px;font-size:12px;flex-shrink:0">${initials(u.fullName)}</div>
+          <div style="text-align:left">
+            <div style="font-weight:600;font-size:13px">${u.fullName}</div>
+            <div style="font-size:12px;color:var(--text-secondary)">${u.role} &middot; ${u.team}</div>
+          </div>
+        </button>`).join('')}
+    </div>
+    <button class="btn btn-secondary" style="width:100%;margin-top:12px" onclick="hideModal()">Cancel</button>
+  `);
+}
+
+function switchUser(userId) {
+  hideModal();
+  const user = allUsers.find(u => u.id === userId);
+  if (user) loginAs(user);
 }
 
 // ── Geolocation auto check-in ──────────────────────────────────────────────
@@ -474,9 +516,13 @@ function renderWeekPatternMini() {
     ${days.map((d, i) => {
       const s = pattern[d] || 'remote';
       const a = anchors.includes(d);
-      return `<div style="flex:1;text-align:center;padding:8px 4px;border-radius:6px;background:${s==='office'?'#eff6ff':'#f8fafc'};border:1.5px solid ${s==='office'?'#bfdbfe':'#e2e8f0'}">
-        <div style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase">${labels[i]}</div>
-        <div style="font-size:11px;font-weight:700;color:${s==='office'?'#1d4ed8':'#64748b'};margin-top:3px">${a?'Anchor':s==='office'?'Office':'Remote'}</div>
+      const bg   = a ? '#FEF3C7'  : s==='office' ? '#E6F2EE' : '#F2F5F4';
+      const bd   = a ? '#FDE68A'  : s==='office' ? '#A7D7C5' : '#D4E2DE';
+      const col  = a ? '#92400E'  : s==='office' ? '#006A4D' : '#94A3B8';
+      const label = a ? 'Anchor' : s==='office' ? 'Office' : 'Remote';
+      return `<div style="flex:1;text-align:center;padding:8px 4px;border-radius:6px;background:${bg};border:1.5px solid ${bd}">
+        <div style="font-size:10px;font-weight:600;color:#4A5A7A;text-transform:uppercase;letter-spacing:0.05em">${labels[i]}</div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.05em;color:${col};margin-top:3px">${label}</div>
       </div>`;
     }).join('')}
   </div>`;
@@ -896,15 +942,15 @@ async function loadWhosIn() {
 // ── Init ───────────────────────────────────────────────────────────────────
 
 async function init() {
-  await initLogin();
-  document.getElementById('login-btn').addEventListener('click', login);
   document.getElementById('logout-btn').addEventListener('click', logout);
+  document.getElementById('switch-btn').addEventListener('click', switchAccount);
   document.getElementById('modal-overlay').addEventListener('click', e => {
     if (e.target === e.currentTarget) hideModal();
   });
   document.querySelectorAll('.nav-item').forEach(el => {
     el.addEventListener('click', e => { e.preventDefault(); navigate(el.dataset.view); });
   });
+  ssoLogin();
 }
 
 document.addEventListener('DOMContentLoaded', init);
