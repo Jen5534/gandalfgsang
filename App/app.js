@@ -365,6 +365,123 @@ async function checkInBooking(bookingId) {
   }
 }
 
+// ── Arrival Confidence ────────────────────────────────────────────────────
+
+const DAY_OCCUPANCY = { monday:0.78, tuesday:0.48, wednesday:0.72, thursday:0.52, friday:0.38 };
+const NB_PRESSURE   = { 'Window Bank':0.06, 'Quiet Zone':0.04, 'Core Desk Area':0, 'Collaboration Zone':-0.04 };
+
+function calculateConfidence(dateStr) {
+  const day        = dayKey(dateStr);
+  const baseOcc    = DAY_OCCUPANCY[day] ?? 0.55;
+  const anchorBump = isAnchorDay(currentUser, dateStr) ? 0.12 : 0;
+  const bookings   = getBookings({ date: dateStr });
+
+  // Per-neighbourhood scores
+  const neighbourhoodScores = {};
+  const nbs = ['Window Bank','Quiet Zone','Core Desk Area','Collaboration Zone'];
+  for (const nb of nbs) {
+    const nbDesks  = DESKS.filter(d => d.neighbourhood === nb);
+    const nbBooked = bookings.filter(b => nbDesks.find(d => d.id === b.deskId)).length;
+    const actual   = nbBooked / Math.max(nbDesks.length, 1);
+    const sim      = baseOcc + anchorBump + (NB_PRESSURE[nb] ?? 0);
+    const occ      = Math.min(0.97, Math.max(actual, sim));
+    neighbourhoodScores[nb] = Math.round((1 - occ) * 100);
+  }
+
+  const prefNb    = currentUser.preferredNeighbourhood;
+  const nbScore   = neighbourhoodScores[prefNb] ?? 50;
+  const globalOcc = Math.min(0.97, Math.max(baseOcc + anchorBump, bookings.length / Math.max(DESKS.length, 1)));
+  const score     = Math.round(nbScore * 0.65 + (1 - globalOcc) * 100 * 0.35);
+  const clamped   = Math.max(4, Math.min(96, score));
+
+  let level, label, colour;
+  if (clamped >= 85) { level='very-high'; label='Very High'; colour='#006A4D'; }
+  else if (clamped >= 70) { level='high';     label='High';      colour='#16a34a'; }
+  else if (clamped >= 50) { level='medium';   label='Medium';    colour='#D97706'; }
+  else if (clamped >= 30) { level='low';      label='Low';       colour='#EA580C'; }
+  else                    { level='very-low'; label='Very Low';  colour='#DC2626'; }
+
+  const dayName = day.charAt(0).toUpperCase() + day.slice(1);
+  const reasons = [];
+  if (isAnchorDay(currentUser, dateStr)) reasons.push(`${dayName} is your anchor day — higher turnout expected`);
+  if (baseOcc >= 0.70) reasons.push(`${dayName}s are typically a busy office day`);
+  else if (baseOcc <= 0.45) reasons.push(`${dayName}s tend to be quieter`);
+  if (nbScore < 50) reasons.push(`${prefNb} is likely to be in high demand`);
+  else if (nbScore >= 75) reasons.push(`${prefNb} (your preferred zone) looks well available`);
+
+  const suggestions = [];
+  if (clamped < 50) {
+    const best = Object.entries(neighbourhoodScores).filter(([nb]) => nb !== prefNb).sort((a,b) => b[1]-a[1])[0];
+    if (best && best[1] > clamped + 10)
+      suggestions.push({ icon:'📍', text:`Try <strong>${best[0]}</strong> instead — ${best[1]}% confidence there` });
+    suggestions.push({ icon:'🔒', text:'<strong>Book now</strong> to guarantee your spot before you travel' });
+  }
+  if (clamped < 35) {
+    const quieter = Object.entries(DAY_OCCUPANCY).filter(([d]) => d !== day && DAY_OCCUPANCY[d] < baseOcc).sort((a,b) => a[1]-b[1]);
+    if (quieter.length) {
+      const qd = quieter[0][0];
+      suggestions.push({ icon:'📅', text:`<strong>${qd.charAt(0).toUpperCase()+qd.slice(1)}</strong> is usually quieter if you can flex your day` });
+    }
+  }
+
+  return { score: clamped, level, label, colour, reasons, suggestions, neighbourhoodScores };
+}
+
+function renderConfidenceWidget(dateStr) {
+  const c = calculateConfidence(dateStr);
+  const isToday = dateStr === today();
+  const weekDates = getWeekDates(weekMonday(dateStr));
+
+  const weekMini = weekDates.map(d => {
+    const wc  = calculateConfidence(d);
+    const isPast = d < today();
+    return `<div style="flex:1;text-align:center;opacity:${isPast?0.4:1}">
+      <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px">${parseDate(d).toLocaleDateString('en-GB',{weekday:'short'})}</div>
+      <div style="width:32px;height:32px;border-radius:50%;background:${wc.colour}22;border:2px solid ${wc.colour};color:${wc.colour};font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto">${wc.score}%</div>
+      <div style="font-size:9px;margin-top:3px;color:${wc.colour};font-weight:600">${wc.label}</div>
+    </div>`;
+  }).join('');
+
+  const suggestionsHtml = c.suggestions.length ? `
+    <div class="confidence-suggestions">
+      <div class="confidence-suggest-title">Suggestions</div>
+      ${c.suggestions.map(s => `<div class="confidence-suggest"><span class="confidence-suggest-icon">${s.icon}</span><span>${s.text}</span></div>`).join('')}
+    </div>` : '';
+
+  return `
+    <div class="card one-col confidence-card">
+      <div class="card-header">
+        <span class="card-title">Arrival Confidence${isToday?' — Today':' — '+displayShortDate(dateStr)}</span>
+        <span class="confidence-pill" style="background:${c.colour}22;color:${c.colour};border:1px solid ${c.colour}44">${c.label}</span>
+      </div>
+      <div class="card-body" style="padding:16px 20px">
+        <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px">
+          <div class="confidence-ring" style="--conf-colour:${c.colour};--conf-pct:${c.score}">
+            <svg width="80" height="80" viewBox="0 0 80 80">
+              <circle cx="40" cy="40" r="32" fill="none" stroke="${c.colour}22" stroke-width="8"/>
+              <circle cx="40" cy="40" r="32" fill="none" stroke="${c.colour}" stroke-width="8"
+                stroke-dasharray="${2*Math.PI*32}" stroke-dashoffset="${2*Math.PI*32*(1-c.score/100)}"
+                stroke-linecap="round" transform="rotate(-90 40 40)"/>
+            </svg>
+            <div class="confidence-ring-label" style="color:${c.colour}">${c.score}%</div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:18px;font-weight:700;color:${c.colour};margin-bottom:4px">${c.label} confidence</div>
+            <div style="font-size:13px;color:var(--text-secondary);margin-bottom:10px">of finding a desk in <strong>${currentUser.preferredNeighbourhood}</strong></div>
+            ${c.reasons.map(r => `<div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:4px;display:flex;gap:6px"><span style="color:${c.colour}">•</span>${r}</div>`).join('')}
+          </div>
+        </div>
+
+        ${suggestionsHtml}
+
+        <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:${c.suggestions.length?'14px':'0'}">
+          <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:10px">Week outlook</div>
+          <div style="display:flex;gap:6px">${weekMini}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
 // ── Dashboard ──────────────────────────────────────────────────────────────
 
 async function renderDashboard() {
@@ -430,6 +547,8 @@ async function renderDashboard() {
         <div class="stat-sub">${currentUser.team}</div>
       </div>
     </div>
+
+    ${renderConfidenceWidget(today())}
 
     ${suggestions.length > 0 ? `
     <div class="card one-col">
@@ -618,12 +737,14 @@ async function renderBookView() {
             const isToday_ = dateStr === today();
             const isPast_ = dateStr < today();
             const hasBooking = userBookingDates.has(dateStr);
+            const wc = isPast_ ? null : calculateConfidence(dateStr);
             return `<div class="week-day${isSelected?' selected':''}${isToday_?' today':''}${isPast_?' past':''}"
               onclick="selectBookDate('${dateStr}')">
               ${hasBooking ? '<div class="day-booking-dot"></div>' : ''}
               <div class="day-name">${dayName}</div>
               <div class="day-num">${dayNum}</div>
               <div class="day-status ${anchor?'anchor':status}">${anchor?'Anchor':status==='office'?'Office':'Remote'}</div>
+              ${wc ? `<div style="font-size:9px;font-weight:700;color:${wc.colour};margin-top:3px;letter-spacing:0.02em">${wc.score}%</div>` : ''}
             </div>`;
           }).join('')}
         </div>
