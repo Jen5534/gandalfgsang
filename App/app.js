@@ -15,34 +15,34 @@ const OFFICE_RADIUS_M = 300;
 // ── Desk data ──────────────────────────────────────────────────────────────
 
 const DESKS = [
-  { id: 'G-W1', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat', 'dual-monitor'] },
-  { id: 'G-W2', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat', 'standing-desk'] },
-  { id: 'G-W3', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat'] },
-  { id: 'G-W4', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat', 'quiet-area'] },
-  { id: 'G-Q1', floor: 'ground', neighbourhood: 'Quiet Zone',        features: ['quiet-area', 'dual-monitor'] },
-  { id: 'G-Q2', floor: 'ground', neighbourhood: 'Quiet Zone',        features: ['quiet-area'] },
-  { id: 'G-Q3', floor: 'ground', neighbourhood: 'Quiet Zone',        features: ['quiet-area', 'standing-desk'] },
-  { id: 'G-C1', floor: 'ground', neighbourhood: 'Core Desk Area',    features: ['dual-monitor'] },
-  { id: 'G-C2', floor: 'ground', neighbourhood: 'Core Desk Area',    features: ['dual-monitor', 'standing-desk'] },
-  { id: 'G-C3', floor: 'ground', neighbourhood: 'Core Desk Area',    features: ['accessible-desk', 'dual-monitor'] },
-  { id: 'G-C4', floor: 'ground', neighbourhood: 'Core Desk Area',    features: [] },
-  { id: 'G-C5', floor: 'ground', neighbourhood: 'Core Desk Area',    features: ['standing-desk'] },
-  { id: 'G-L1', floor: 'ground', neighbourhood: 'Collaboration Zone',features: ['near-team', 'dual-monitor'] },
-  { id: 'G-L2', floor: 'ground', neighbourhood: 'Collaboration Zone',features: ['near-team'] },
-  { id: 'G-L3', floor: 'ground', neighbourhood: 'Collaboration Zone',features: ['near-team', 'standing-desk'] },
-  { id: 'F-W1', floor: 'first',  neighbourhood: 'Window Bank',       features: ['window-seat', 'dual-monitor'] },
-  { id: 'F-W2', floor: 'first',  neighbourhood: 'Window Bank',       features: ['window-seat'] },
-  { id: 'F-W3', floor: 'first',  neighbourhood: 'Window Bank',       features: ['window-seat', 'standing-desk'] },
-  { id: 'F-Q1', floor: 'first',  neighbourhood: 'Quiet Zone',        features: ['quiet-area', 'dual-monitor'] },
-  { id: 'F-Q2', floor: 'first',  neighbourhood: 'Quiet Zone',        features: ['quiet-area', 'standing-desk'] },
-  { id: 'F-Q3', floor: 'first',  neighbourhood: 'Quiet Zone',        features: ['quiet-area'] },
-  { id: 'F-C1', floor: 'first',  neighbourhood: 'Core Desk Area',    features: ['dual-monitor'] },
-  { id: 'F-C2', floor: 'first',  neighbourhood: 'Core Desk Area',    features: ['accessible-desk'] },
-  { id: 'F-C3', floor: 'first',  neighbourhood: 'Core Desk Area',    features: ['standing-desk', 'dual-monitor'] },
-  { id: 'F-C4', floor: 'first',  neighbourhood: 'Core Desk Area',    features: [] },
-  { id: 'F-L1', floor: 'first',  neighbourhood: 'Collaboration Zone',features: ['near-team'] },
-  { id: 'F-L2', floor: 'first',  neighbourhood: 'Collaboration Zone',features: ['near-team', 'dual-monitor'] },
-  { id: 'F-L3', floor: 'first',  neighbourhood: 'Collaboration Zone',features: ['near-team', 'standing-desk'] },
+  { id: 'G-W1', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat', 'dual-monitor'],          env: ['bright', 'cool', 'fresh-air'] },
+  { id: 'G-W2', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat', 'standing-desk'],         env: ['bright', 'cool', 'fresh-air'] },
+  { id: 'G-W3', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat'],                          env: ['bright', 'cool'] },
+  { id: 'G-W4', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat', 'quiet-area'],            env: ['bright', 'cool', 'quiet'] },
+  { id: 'G-Q1', floor: 'ground', neighbourhood: 'Quiet Zone',        features: ['quiet-area', 'dual-monitor'],           env: ['quiet', 'dim'] },
+  { id: 'G-Q2', floor: 'ground', neighbourhood: 'Quiet Zone',        features: ['quiet-area'],                           env: ['quiet', 'dim'] },
+  { id: 'G-Q3', floor: 'ground', neighbourhood: 'Quiet Zone',        features: ['quiet-area', 'standing-desk'],          env: ['quiet', 'dim', 'cool'] },
+  { id: 'G-C1', floor: 'ground', neighbourhood: 'Core Desk Area',    features: ['dual-monitor'],                         env: ['warm'] },
+  { id: 'G-C2', floor: 'ground', neighbourhood: 'Core Desk Area',    features: ['dual-monitor', 'standing-desk'],        env: ['warm'] },
+  { id: 'G-C3', floor: 'ground', neighbourhood: 'Core Desk Area',    features: ['accessible-desk', 'dual-monitor'],      env: [] },
+  { id: 'G-C4', floor: 'ground', neighbourhood: 'Core Desk Area',    features: [],                                       env: ['warm', 'aircon-vent'] },
+  { id: 'G-C5', floor: 'ground', neighbourhood: 'Core Desk Area',    features: ['standing-desk'],                        env: ['cool', 'aircon-vent'] },
+  { id: 'G-L1', floor: 'ground', neighbourhood: 'Collaboration Zone',features: ['near-team', 'dual-monitor'],            env: ['lively', 'warm'] },
+  { id: 'G-L2', floor: 'ground', neighbourhood: 'Collaboration Zone',features: ['near-team'],                            env: ['lively', 'warm'] },
+  { id: 'G-L3', floor: 'ground', neighbourhood: 'Collaboration Zone',features: ['near-team', 'standing-desk'],           env: ['lively'] },
+  { id: 'F-W1', floor: 'first',  neighbourhood: 'Window Bank',       features: ['window-seat', 'dual-monitor'],          env: ['bright', 'cool', 'fresh-air'] },
+  { id: 'F-W2', floor: 'first',  neighbourhood: 'Window Bank',       features: ['window-seat'],                          env: ['bright', 'cool'] },
+  { id: 'F-W3', floor: 'first',  neighbourhood: 'Window Bank',       features: ['window-seat', 'standing-desk'],         env: ['bright', 'cool', 'fresh-air'] },
+  { id: 'F-Q1', floor: 'first',  neighbourhood: 'Quiet Zone',        features: ['quiet-area', 'dual-monitor'],           env: ['quiet', 'dim'] },
+  { id: 'F-Q2', floor: 'first',  neighbourhood: 'Quiet Zone',        features: ['quiet-area', 'standing-desk'],          env: ['quiet', 'dim', 'cool'] },
+  { id: 'F-Q3', floor: 'first',  neighbourhood: 'Quiet Zone',        features: ['quiet-area'],                           env: ['quiet', 'dim'] },
+  { id: 'F-C1', floor: 'first',  neighbourhood: 'Core Desk Area',    features: ['dual-monitor'],                         env: ['warm'] },
+  { id: 'F-C2', floor: 'first',  neighbourhood: 'Core Desk Area',    features: ['accessible-desk'],                      env: [] },
+  { id: 'F-C3', floor: 'first',  neighbourhood: 'Core Desk Area',    features: ['standing-desk', 'dual-monitor'],        env: ['cool', 'aircon-vent'] },
+  { id: 'F-C4', floor: 'first',  neighbourhood: 'Core Desk Area',    features: [],                                       env: ['warm'] },
+  { id: 'F-L1', floor: 'first',  neighbourhood: 'Collaboration Zone',features: ['near-team'],                            env: ['lively', 'bright'] },
+  { id: 'F-L2', floor: 'first',  neighbourhood: 'Collaboration Zone',features: ['near-team', 'dual-monitor'],            env: ['lively', 'warm'] },
+  { id: 'F-L3', floor: 'first',  neighbourhood: 'Collaboration Zone',features: ['near-team', 'standing-desk'],           env: ['lively'] },
 ];
 
 // ── Local bookings store (localStorage) ───────────────────────────────────
@@ -178,6 +178,12 @@ function initials(name) {
   return name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2);
 }
 
+function strHash(str) {
+  let h = 0;
+  for (const c of str) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
+  return Math.abs(h);
+}
+
 function avatarColor(name) {
   const cols = ['#1d4ed8','#0891b2','#7c3aed','#be185d','#b45309','#16a34a','#dc2626','#0369a1'];
   let h = 0;
@@ -190,6 +196,10 @@ function scoreDesk(desk, user) {
   if (desk.neighbourhood === user.preferredNeighbourhood) s += 3;
   for (const f of desk.features) if ((user.deskPreferences || []).includes(f)) s += 1;
   if (user.accessibilityNeeds && desk.features.includes('accessible-desk')) s += 2;
+  const ep = loadEnvPrefs();
+  if (ep.temp  && (desk.env || []).includes(ep.temp))  s += 1;
+  if (ep.light && (desk.env || []).includes(ep.light)) s += 1;
+  if (ep.noise && (desk.env || []).includes(ep.noise)) s += 1;
   return s;
 }
 
@@ -369,12 +379,20 @@ async function checkInBooking(bookingId) {
 
 const DAY_OCCUPANCY = { monday:0.78, tuesday:0.48, wednesday:0.72, thursday:0.52, friday:0.38 };
 const NB_PRESSURE   = { 'Window Bank':0.06, 'Quiet Zone':0.04, 'Core Desk Area':0, 'Collaboration Zone':-0.04 };
+// Fraction of daily occupancy physically present at each arrival window
+const ARRIVAL_FACTOR = { '7am': 0.05, '8am': 0.10, '9am': 0.50, '10am': 1.0 };
 
 function calculateConfidence(dateStr) {
-  const day        = dayKey(dateStr);
-  const baseOcc    = DAY_OCCUPANCY[day] ?? 0.55;
-  const anchorBump = isAnchorDay(currentUser, dateStr) ? 0.12 : 0;
-  const bookings   = getBookings({ date: dateStr });
+  const day          = dayKey(dateStr);
+  const baseOcc      = DAY_OCCUPANCY[day] ?? 0.55;
+  const anchorBump   = isAnchorDay(currentUser, dateStr) ? 0.12 : 0;
+  const bookings     = getBookings({ date: dateStr });
+
+  // Arrival time scales the simulated occupancy — earlier = fewer people present yet
+  const ep           = loadEnvPrefs();
+  const arrivalKey   = ep.arrival || null;
+  const arrivalFactor = arrivalKey ? (ARRIVAL_FACTOR[arrivalKey] ?? 1.0) : 1.0;
+  const simBase      = (baseOcc + anchorBump) * arrivalFactor;
 
   // Per-neighbourhood scores
   const neighbourhoodScores = {};
@@ -383,14 +401,14 @@ function calculateConfidence(dateStr) {
     const nbDesks  = DESKS.filter(d => d.neighbourhood === nb);
     const nbBooked = bookings.filter(b => nbDesks.find(d => d.id === b.deskId)).length;
     const actual   = nbBooked / Math.max(nbDesks.length, 1);
-    const sim      = baseOcc + anchorBump + (NB_PRESSURE[nb] ?? 0);
+    const sim      = simBase + (NB_PRESSURE[nb] ?? 0);
     const occ      = Math.min(0.97, Math.max(actual, sim));
     neighbourhoodScores[nb] = Math.round((1 - occ) * 100);
   }
 
   const prefNb    = currentUser.preferredNeighbourhood;
   const nbScore   = neighbourhoodScores[prefNb] ?? 50;
-  const globalOcc = Math.min(0.97, Math.max(baseOcc + anchorBump, bookings.length / Math.max(DESKS.length, 1)));
+  const globalOcc = Math.min(0.97, Math.max(simBase, bookings.length / Math.max(DESKS.length, 1)));
   const score     = Math.round(nbScore * 0.65 + (1 - globalOcc) * 100 * 0.35);
   const clamped   = Math.max(4, Math.min(96, score));
 
@@ -403,6 +421,13 @@ function calculateConfidence(dateStr) {
 
   const dayName = day.charAt(0).toUpperCase() + day.slice(1);
   const reasons = [];
+
+  // Arrival time reason — shown first as it's a direct user input
+  if (arrivalKey === '7am')  reasons.push('Arriving before 7am — you\'ll have the office almost to yourself');
+  else if (arrivalKey === '8am')  reasons.push('Arriving by 8am — well ahead of the peak rush');
+  else if (arrivalKey === '9am')  reasons.push('Arriving by 9am — busy period, more competition for desks');
+  else if (arrivalKey === '10am') reasons.push('Arriving after 10am — most colleagues settled in by then');
+
   if (isAnchorDay(currentUser, dateStr)) reasons.push(`${dayName} is your anchor day — higher turnout expected`);
   if (baseOcc >= 0.70) reasons.push(`${dayName}s are typically a busy office day`);
   else if (baseOcc <= 0.45) reasons.push(`${dayName}s tend to be quieter`);
@@ -415,6 +440,8 @@ function calculateConfidence(dateStr) {
     if (best && best[1] > clamped + 10)
       suggestions.push({ icon:'📍', text:`Try <strong>${best[0]}</strong> instead — ${best[1]}% confidence there` });
     suggestions.push({ icon:'🔒', text:'<strong>Book now</strong> to guarantee your spot before you travel' });
+    if (!arrivalKey || arrivalKey === '10am')
+      suggestions.push({ icon:'⏰', text:'<strong>Arrive earlier</strong> — by 8am confidence rises significantly' });
   }
   if (clamped < 35) {
     const quieter = Object.entries(DAY_OCCUPANCY).filter(([d]) => d !== day && DAY_OCCUPANCY[d] < baseOcc).sort((a,b) => a[1]-b[1]);
@@ -424,7 +451,7 @@ function calculateConfidence(dateStr) {
     }
   }
 
-  return { score: clamped, level, label, colour, reasons, suggestions, neighbourhoodScores };
+  return { score: clamped, level, label, colour, reasons, suggestions, neighbourhoodScores, arrivalKey };
 }
 
 function renderConfidenceWidget(dateStr) {
@@ -432,10 +459,9 @@ function renderConfidenceWidget(dateStr) {
   const isToday = dateStr === today();
   const weekDates = getWeekDates(weekMonday(dateStr));
 
-  const weekMini = weekDates.map(d => {
-    const wc  = calculateConfidence(d);
-    const isPast = d < today();
-    return `<div style="flex:1;text-align:center;opacity:${isPast?0.4:1}">
+  const weekMini = weekDates.filter(d => d >= today()).map(d => {
+    const wc = calculateConfidence(d);
+    return `<div style="flex:1;text-align:center">
       <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;margin-bottom:4px">${parseDate(d).toLocaleDateString('en-GB',{weekday:'short'})}</div>
       <div style="width:32px;height:32px;border-radius:50%;background:${wc.colour}22;border:2px solid ${wc.colour};color:${wc.colour};font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto">${wc.score}%</div>
       <div style="font-size:9px;margin-top:3px;color:${wc.colour};font-weight:600">${wc.label}</div>
@@ -452,7 +478,10 @@ function renderConfidenceWidget(dateStr) {
     <div class="card one-col confidence-card">
       <div class="card-header">
         <span class="card-title">Arrival Confidence${isToday?' — Today':' — '+displayShortDate(dateStr)}</span>
-        <span class="confidence-pill" style="background:${c.colour}22;color:${c.colour};border:1px solid ${c.colour}44">${c.label}</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${c.arrivalKey ? `<span style="font-size:11.5px;color:var(--text-muted)">arriving ${{  '7am':'by 7am','8am':'by 8am','9am':'by 9am','10am':'after 10am'}[c.arrivalKey]}</span>` : ''}
+          <span class="confidence-pill" style="background:${c.colour}22;color:${c.colour};border:1px solid ${c.colour}44">${c.label}</span>
+        </div>
       </div>
       <div class="card-body" style="padding:16px 20px">
         <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px">
@@ -480,6 +509,299 @@ function renderConfidenceWidget(dateStr) {
         </div>
       </div>
     </div>`;
+}
+
+// ── Routine Detection & Soft Holds ────────────────────────────────────────
+// Soft holds are created in the background the night before an office day.
+// They block others from booking the desk until the grace period expires
+// (usual arrival time + 1 hour). When the colleague scans in, the hold
+// converts to a confirmed booking automatically.
+
+const SOFT_HOLDS_KEY = 'mdb_soft_holds';
+const WORKDAYS = ['monday','tuesday','wednesday','thursday','friday'];
+const DAY_LABELS = { monday:'Mon', tuesday:'Tue', wednesday:'Wed', thursday:'Thu', friday:'Fri' };
+
+function loadSoftHolds() {
+  try { return JSON.parse(localStorage.getItem(SOFT_HOLDS_KEY) || '[]'); } catch { return []; }
+}
+function saveSoftHolds(h) { localStorage.setItem(SOFT_HOLDS_KEY, JSON.stringify(h)); }
+
+function getHistoricPattern(userId, day) {
+  return HISTORIC_PATTERNS.find(p => p.userId === userId)?.patterns.find(p => p.day === day) || null;
+}
+
+function addGraceHour(arrivalTime) {
+  const [h, m] = arrivalTime.split(':').map(Number);
+  return `${String(h + 1).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function isHoldExpired(date, expiryTime) {
+  if (date > today()) return false;
+  if (date < today()) return true;
+  // For today: check actual clock
+  const now = new Date();
+  const [h, m] = expiryTime.split(':').map(Number);
+  return now.getHours() > h || (now.getHours() === h && now.getMinutes() >= m);
+}
+
+// Called on login and dashboard render — creates holds for all users from
+// HISTORIC_PATTERNS for today + next 7 working days. Idempotent.
+function generateAllSoftHolds() {
+  const holds = loadSoftHolds();
+  const existingKeys = new Set(
+    holds.filter(h => h.status !== 'released').map(h => `${h.userId}|${h.date}`)
+  );
+  const bookings = loadBookings();
+  const bookedKeys = new Set(bookings.map(b => `${b.userId}|${b.date}`));
+
+  let changed = false;
+  let daysChecked = 0, i = 0;
+
+  while (daysChecked <= 7) {
+    const date = addDays(today(), i++);
+    const day = dayKey(date);
+    if (!WORKDAYS.includes(day)) continue;
+    daysChecked++;
+
+    for (const userPattern of HISTORIC_PATTERNS) {
+      const pat = userPattern.patterns.find(p => p.day === day);
+      if (!pat) continue;
+      const key = `${userPattern.userId}|${date}`;
+      if (existingKeys.has(key) || bookedKeys.has(key)) continue;
+
+      const expiryTime = addGraceHour(pat.arrivalTime);
+      holds.push({
+        id: generateId(),
+        userId: userPattern.userId,
+        userName: userPattern.name,
+        deskId: pat.deskId,
+        date,
+        arrivalTime: pat.arrivalTime,
+        expiryTime,
+        consistency: pat.consistency,
+        status: isHoldExpired(date, expiryTime) ? 'expired' : 'active',
+        source: 'routine',
+        createdAt: new Date().toISOString(),
+      });
+      existingKeys.add(key);
+      changed = true;
+    }
+  }
+  if (changed) saveSoftHolds(holds);
+}
+
+// Returns the active soft hold for a desk on a date (blocks booking by others)
+function getDeskSoftHold(deskId, date) {
+  return loadSoftHolds().find(h =>
+    h.deskId === deskId &&
+    h.date === date &&
+    h.status === 'active' &&
+    !isHoldExpired(date, h.expiryTime)
+  ) || null;
+}
+
+// Returns current user's own hold for a date (informational)
+function getMyHoldForDate(date) {
+  return loadSoftHolds().find(h =>
+    h.userId === currentUser.id &&
+    h.date === date &&
+    h.status === 'active'
+  ) || null;
+}
+
+// Scan-in: converts hold to a real booking
+function checkInViaHold(holdId) {
+  const holds = loadSoftHolds();
+  const hold  = holds.find(h => h.id === holdId);
+  if (!hold) return;
+  try {
+    createBooking({ userId: hold.userId, deskId: hold.deskId, date: hold.date, slot: 'full' });
+    hold.status = 'checked-in';
+    saveSoftHolds(holds);
+    toast(`Checked in — ${hold.deskId} confirmed`, 'success');
+    renderDashboard();
+  } catch (e) {
+    toast(e.message, 'error');
+  }
+}
+
+// User says they won't be in — releases the desk for others
+function releaseHold(holdId) {
+  const holds = loadSoftHolds();
+  const hold  = holds.find(h => h.id === holdId);
+  if (hold) { hold.status = 'released'; saveSoftHolds(holds); }
+  renderDashboard();
+}
+
+function renderRoutineCard() {
+  generateAllSoftHolds();
+
+  const myPattern = HISTORIC_PATTERNS.find(p => p.userId === currentUser.id);
+  const myHoldsThisWeek = loadSoftHolds()
+    .filter(h => h.userId === currentUser.id && h.status === 'active' && h.date >= today())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 5);
+
+  if (!myPattern && !myHoldsThisWeek.length) return '';
+
+  const patternHtml = myPattern ? myPattern.patterns.map(p => {
+    const desk = DESKS.find(d => d.id === p.deskId);
+    return `<div class="routine-day-card">
+      <div class="routine-day-label">${DAY_LABELS[p.day]}</div>
+      <div class="routine-desk">${p.deskId}</div>
+      <div class="routine-nb">${desk?.neighbourhood?.split(' ')[0] || ''}</div>
+      <div class="routine-conf">${Math.round(p.consistency * 100)}%</div>
+    </div>`;
+  }).join('') : '';
+
+  const holdsHtml = myHoldsThisWeek.map(h => {
+    const desk = DESKS.find(d => d.id === h.deskId);
+    const expired = isHoldExpired(h.date, h.expiryTime);
+    const isToday_ = h.date === today();
+    return `<div class="soft-hold-row">
+      <div class="soft-hold-date-block">
+        <div style="font-size:10px;font-weight:600;text-transform:uppercase;color:var(--primary)">${parseDate(h.date).toLocaleDateString('en-GB',{month:'short'})}</div>
+        <div style="font-size:18px;font-weight:700;line-height:1;color:var(--primary)">${parseDate(h.date).getDate()}</div>
+        <div style="font-size:9px;color:var(--text-muted)">${parseDate(h.date).toLocaleDateString('en-GB',{weekday:'short'})}</div>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+          <span style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.04em">${h.deskId}</span>
+          <span class="desk-neighbourhood ${nbClass(desk?.neighbourhood||'')}" style="font-size:10px">${desk?.neighbourhood||''}</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px">
+          ${expired ? 'Grace period ended — desk released' : `Reserved · grace until <strong>${h.expiryTime}</strong>`}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;align-items:center">
+        ${isToday_ && !expired ? `<button class="btn btn-sm btn-primary" onclick="checkInViaHold('${h.id}')">Scan in</button>` : ''}
+        ${!expired ? `<button class="btn btn-sm btn-secondary" onclick="releaseHold('${h.id}')">Release</button>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<div class="card one-col">
+    <div class="card-header">
+      <span class="card-title">Your Routine</span>
+      <span class="pill pill-blue" style="font-size:11px">Background holds active</span>
+    </div>
+    <div class="card-body" style="padding:14px 20px">
+      ${myPattern ? `
+        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px">Based on your historic patterns — your usual desks are reserved automatically the night before.</p>
+        <div class="routine-pattern" style="margin-bottom:${myHoldsThisWeek.length ? 16 : 0}px">${patternHtml}</div>` : ''}
+      ${myHoldsThisWeek.length ? `
+        <div style="${myPattern ? 'padding-top:16px;border-top:1px solid var(--border);' : ''}">
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:10px">Active reservations — scan in to confirm or release if not coming in</div>
+          <div class="soft-hold-list">${holdsHtml}</div>
+        </div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── Environmental Comfort ─────────────────────────────────────────────────
+
+const ENV_PREFS_KEY   = 'mdb_env_prefs';
+const ENV_RATINGS_KEY = 'mdb_env_ratings';
+
+const ENV_TAG_META = {
+  'bright':     { icon: '☀️',  label: 'Bright' },
+  'dim':        { icon: '🔅',  label: 'Low light' },
+  'cool':       { icon: '🌬️', label: 'Cool' },
+  'warm':       { icon: '🌡️', label: 'Warm' },
+  'quiet':      { icon: '🔇',  label: 'Quiet' },
+  'lively':     { icon: '🗣️', label: 'Lively' },
+  'fresh-air':  { icon: '💨',  label: 'Airy' },
+  'aircon-vent':{ icon: '❄️',  label: 'A/C vent' },
+  'stuffy':     { icon: '😮‍💨', label: 'Stuffy' },
+};
+
+function loadEnvPrefs() {
+  try { return JSON.parse(localStorage.getItem(ENV_PREFS_KEY) || 'null') || {}; } catch { return {}; }
+}
+function saveEnvPrefs(p) { localStorage.setItem(ENV_PREFS_KEY, JSON.stringify(p)); }
+
+function loadEnvRatings() {
+  try { return JSON.parse(localStorage.getItem(ENV_RATINGS_KEY) || '{}'); } catch { return {}; }
+}
+function addEnvRating(deskId, tag) {
+  const r = loadEnvRatings();
+  if (!r[deskId]) r[deskId] = {};
+  r[deskId][tag] = (r[deskId][tag] || 0) + 1;
+  localStorage.setItem(ENV_RATINGS_KEY, JSON.stringify(r));
+}
+
+function toggleEnvPref(key, value) {
+  const p = loadEnvPrefs();
+  if (value) p[key] = value; else delete p[key];
+  saveEnvPrefs(p);
+  renderDashboard();
+}
+
+let _pendingEnvTags = new Set();
+
+function toggleEnvRateTag(tag) {
+  if (_pendingEnvTags.has(tag)) _pendingEnvTags.delete(tag);
+  else _pendingEnvTags.add(tag);
+  document.querySelectorAll('.env-rate-btn').forEach(b => {
+    b.classList.toggle('active', _pendingEnvTags.has(b.dataset.tag));
+  });
+}
+
+function submitEnvRating(deskId) {
+  for (const tag of _pendingEnvTags) addEnvRating(deskId, tag);
+  hideModal();
+  if (_pendingEnvTags.size > 0) toast('Thanks — your feedback helps others choose wisely', 'success');
+  _pendingEnvTags = new Set();
+}
+
+function showEnvRatingModal(deskId) {
+  _pendingEnvTags = new Set();
+  const ratable = ['bright','dim','cool','warm','quiet','lively','fresh-air','stuffy'];
+  showModal(`
+    <div class="modal-title">Rate Environment</div>
+    <div class="modal-desc">Desk <strong>${deskId}</strong> — tap anything that stood out. Your signal helps colleagues find the right spot.</div>
+    <div class="env-rating-grid">
+      ${ratable.map(tag => {
+        const m = ENV_TAG_META[tag];
+        return `<button class="env-rate-btn" data-tag="${tag}" onclick="toggleEnvRateTag('${tag}')">${m.icon} ${m.label}</button>`;
+      }).join('')}
+    </div>
+    <div class="modal-actions" style="margin-top:16px">
+      <button class="btn btn-secondary" onclick="hideModal()">Skip</button>
+      <button class="btn btn-primary" onclick="submitEnvRating('${deskId}')">Submit</button>
+    </div>
+  `);
+}
+
+function renderComfortProfile() {
+  const p = loadEnvPrefs();
+  const hasPrefs = p.temp || p.light || p.noise || p.arrival;
+  const rows = [
+    { key: 'arrival', label: 'Arrival',     opts: [['7am','🌅 By 7am'],['8am','🕗 By 8am'],['9am','🕘 By 9am'],['10am','🕙 10am+']], noAny: true },
+    { key: 'temp',    label: 'Temperature', opts: [['cool','🌬️ Cool'],['warm','🌡️ Warm']] },
+    { key: 'light',   label: 'Light',       opts: [['bright','☀️ Bright'],['dim','🔅 Low light']] },
+    { key: 'noise',   label: 'Noise',       opts: [['quiet','🔇 Quiet'],['lively','🗣️ Lively']] },
+  ];
+  return `<div class="card one-col">
+    <div class="card-header">
+      <span class="card-title">Comfort Profile</span>
+      <span class="pill ${hasPrefs?'pill-blue':'pill-amber'}" style="font-size:11px">${hasPrefs?'Personalised':'Not set'}</span>
+    </div>
+    <div class="card-body" style="padding:14px 20px">
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Your preferences shape desk recommendations — no forms, just a tap.</p>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        ${rows.map(({ key, label, opts, noAny }) => `
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div style="width:88px;font-size:12.5px;font-weight:600;color:var(--text-secondary);flex-shrink:0">${label}</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap">
+              ${opts.map(([val, lbl]) => `<button class="env-pref-btn${p[key]===val?' active':''}" onclick="toggleEnvPref('${key}','${val}')">${lbl}</button>`).join('')}
+              ${noAny ? '' : `<button class="env-pref-btn${!p[key]?' active':''}" onclick="toggleEnvPref('${key}','')">Any</button>`}
+            </div>
+          </div>`).join('')}
+      </div>
+      ${hasPrefs ? `<p style="font-size:12px;color:var(--text-muted);margin-top:14px">Desks matching your preferences are highlighted when booking.</p>` : ''}
+    </div>
+  </div>`;
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
@@ -548,7 +870,11 @@ async function renderDashboard() {
       </div>
     </div>
 
+    ${renderRoutineCard()}
+
     ${renderConfidenceWidget(today())}
+
+    ${renderComfortProfile()}
 
     ${suggestions.length > 0 ? `
     <div class="card one-col">
@@ -727,7 +1053,7 @@ async function renderBookView() {
           </div>
         </div>
         <div class="week-strip">
-          ${weekDates.map(dateStr => {
+          ${weekDates.filter(dateStr => dateStr >= today()).map(dateStr => {
             const dObj = parseDate(dateStr);
             const dayName = dObj.toLocaleDateString('en-GB', { weekday: 'short' });
             const dayNum = dObj.getDate();
@@ -735,16 +1061,15 @@ async function renderBookView() {
             const anchor = isAnchorDay(currentUser, dateStr);
             const isSelected = dateStr === selectedBookDate;
             const isToday_ = dateStr === today();
-            const isPast_ = dateStr < today();
             const hasBooking = userBookingDates.has(dateStr);
-            const wc = isPast_ ? null : calculateConfidence(dateStr);
-            return `<div class="week-day${isSelected?' selected':''}${isToday_?' today':''}${isPast_?' past':''}"
+            const wc = calculateConfidence(dateStr);
+            return `<div class="week-day${isSelected?' selected':''}${isToday_?' today':''}"
               onclick="selectBookDate('${dateStr}')">
               ${hasBooking ? '<div class="day-booking-dot"></div>' : ''}
               <div class="day-name">${dayName}</div>
               <div class="day-num">${dayNum}</div>
               <div class="day-status ${anchor?'anchor':status}">${anchor?'Anchor':status==='office'?'Office':'Remote'}</div>
-              ${wc ? `<div style="font-size:9px;font-weight:700;color:${wc.colour};margin-top:3px;letter-spacing:0.02em">${wc.score}%</div>` : ''}
+              <div style="font-size:9px;font-weight:700;color:${wc.colour};margin-top:3px;letter-spacing:0.02em">${wc.score}%</div>
             </div>`;
           }).join('')}
         </div>
@@ -811,31 +1136,76 @@ function renderDeskCard(desk, myBookingsForDate, mySlots, date) {
   const score = scoreDesk(desk, currentUser);
   const isRecommended = score >= 3 && !isMyDesk && canBookAnything;
 
+  // Check for a colleague's active soft hold on this desk
+  const activeSoftHold = isFuture ? getDeskSoftHold(desk.id, date) : null;
+  const isMyHold = activeSoftHold?.userId === currentUser.id;
+  const otherHold = activeSoftHold && !isMyHold ? activeSoftHold : null;
+
   let cardClass = 'desk-card';
   if (isMyDesk) cardClass += ' my-desk';
+  else if (isMyHold) cardClass += ' soft-hold-mine available';
+  else if (otherHold) cardClass += ' soft-hold-taken';
   else if (!desk.amAvailable && !desk.pmAvailable) cardClass += ' booked';
   else cardClass += ' available';
-  if (isRecommended) cardClass += ' recommended';
+  if (isRecommended && !activeSoftHold) cardClass += ' recommended';
+
+  const ep = loadEnvPrefs();
+  const allRatings = loadEnvRatings();
+  const deskRatings = allRatings[desk.id] || {};
+  const topPeerSignals = Object.entries(deskRatings).sort((a, b) => b[1] - a[1]).slice(0, 2);
+  const envMatchCount = (desk.env || []).filter(tag =>
+    tag === ep.temp || tag === ep.light || tag === ep.noise
+  ).length;
+  const showEnvMatch = envMatchCount > 0 && (ep.temp || ep.light || ep.noise);
+
+  const envTagsHtml = (desk.env || []).length ? `
+    <div class="desk-env">
+      ${(desk.env || []).map(tag => {
+        const m = ENV_TAG_META[tag];
+        const isMatch = tag === ep.temp || tag === ep.light || tag === ep.noise;
+        return `<span class="env-tag${isMatch ? ' env-match' : ''}" title="${m?.label || tag}">${m?.icon || ''} ${m?.label || tag}</span>`;
+      }).join('')}
+    </div>` : '';
+
+  const peerSignalsHtml = topPeerSignals.length ? `
+    <div class="env-peers">
+      ${topPeerSignals.map(([tag, count]) => {
+        const m = ENV_TAG_META[tag];
+        return `<span class="env-peer-tag">${m?.icon || ''} ${count} ${count === 1 ? 'person' : 'people'} say ${m?.label?.toLowerCase() || tag}</span>`;
+      }).join('')}
+    </div>` : '';
 
   return `
     <div class="${cardClass}">
-      ${isRecommended ? '<div class="desk-recommended-badge">Recommended</div>' : ''}
+      ${isMyHold ? '<div class="soft-hold-badge">🔔 Your usual desk</div>' : isRecommended ? '<div class="desk-recommended-badge">Recommended</div>' : ''}
+      ${showEnvMatch && !activeSoftHold ? `<div class="env-match-badge">${envMatchCount === 3 ? 'Perfect' : 'Good'} env match</div>` : ''}
       <div class="desk-id">${desk.id}</div>
       <div class="desk-neighbourhood ${nbClass(desk.neighbourhood)}">${desk.neighbourhood}</div>
       <div class="desk-features">
         ${desk.features.map(f => `<span class="feature-tag ft-${f}">${featureLabel(f)}</span>`).join('')}
         ${desk.features.length === 0 ? '<span style="font-size:12px;color:var(--text-muted)">Standard desk</span>' : ''}
       </div>
+      ${envTagsHtml}
+      ${peerSignalsHtml}
       <div class="slot-bar">
         <span class="slot-badge ${desk.amAvailable ? 'slot-free' : 'slot-taken'}">AM</span>
         <span class="slot-badge ${desk.pmAvailable ? 'slot-free' : 'slot-taken'}">PM</span>
         ${myDeskBooking ? `<span class="slot-badge slot-mine">${slotShort(myDeskBooking.slot||'full')} — You</span>` : ''}
       </div>
+      ${otherHold ? `
+        <div class="soft-hold-taken-info">
+          <span style="font-size:11px;font-weight:600;color:#92400E">Reserved · ${otherHold.userName?.split(' ')[0] || 'Colleague'}</span>
+          <span style="font-size:11px;color:#92400E"> · grace until ${otherHold.expiryTime}</span>
+        </div>` : ''}
       ${isFuture ? `<div class="desk-actions">
-        ${canBookFull  ? `<button class="btn btn-primary btn-sm" onclick="confirmBook('${desk.id}','${date}','full')">Full Day</button>` : ''}
-        ${canBookAm && !canBookFull ? `<button class="btn btn-primary btn-sm" onclick="confirmBook('${desk.id}','${date}','am')">Book AM</button>` : ''}
-        ${canBookPm && !canBookFull ? `<button class="btn btn-secondary btn-sm" onclick="confirmBook('${desk.id}','${date}','pm')">Book PM</button>` : ''}
+        ${isMyHold ? `
+          <button class="btn btn-primary btn-sm" onclick="checkInViaHold('${activeSoftHold.id}')">Scan in</button>
+          <button class="btn btn-sm btn-secondary" onclick="releaseHold('${activeSoftHold.id}')">Release</button>` : ''}
+        ${!activeSoftHold && canBookFull  ? `<button class="btn btn-primary btn-sm" onclick="confirmBook('${desk.id}','${date}','full')">Full Day</button>` : ''}
+        ${!activeSoftHold && canBookAm && !canBookFull ? `<button class="btn btn-primary btn-sm" onclick="confirmBook('${desk.id}','${date}','am')">Book AM</button>` : ''}
+        ${!activeSoftHold && canBookPm && !canBookFull ? `<button class="btn btn-secondary btn-sm" onclick="confirmBook('${desk.id}','${date}','pm')">Book PM</button>` : ''}
         ${myDeskBooking ? `<button class="btn btn-sm btn-outline-danger" onclick="cancelBookingById('${myDeskBooking.id}')">Cancel</button>` : ''}
+        ${myDeskBooking ? `<button class="btn btn-sm btn-secondary" style="font-size:11.5px" onclick="showEnvRatingModal('${desk.id}')">Rate env</button>` : ''}
       </div>` : ''}
     </div>
   `;
