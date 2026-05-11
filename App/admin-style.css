@@ -486,3 +486,209 @@
 }
 
 .btn-full { width: 100%; }
+
+/* ── Neighbourhood cards ─────────────────────────────────────────────────── */
+
+.nb-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.nb-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: box-shadow 0.15s;
+}
+
+.nb-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.1); }
+.nb-card-editing { box-shadow: 0 0 0 2px var(--primary); }
+
+.nb-card-accent {
+  width: 5px;
+  flex-shrink: 0;
+}
+
+.nb-card-content {
+  flex: 1;
+  padding: 14px 16px;
+  min-width: 0;
+}
+
+.nb-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.nb-card-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.nb-card-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.nb-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.nb-card-teams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+  min-height: 22px;
+}
+
+.nb-team-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: 20px;
+}
+
+.nb-desk-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+
+.nb-desk-tag {
+  font-size: 10px;
+  font-family: monospace;
+  padding: 1px 5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text-secondary);
+}
+
+/* ── Building chips ──────────────────────────────────────────────────────── */
+
+.building-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px 5px 12px;
+  background: var(--bg);
+  border: 1.5px solid var(--border);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.chip-remove {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--text-muted);
+  padding: 0 0 0 4px;
+  display: flex;
+  align-items: center;
+}
+
+.chip-remove:hover { color: var(--danger); }
+
+/* ── Neighbourhood edit form ─────────────────────────────────────────────── */
+
+.nb-form-panel {
+  background: white;
+  border: 2px solid var(--primary);
+  border-radius: var(--radius-lg);
+  margin-bottom: 20px;
+  box-shadow: 0 4px 20px rgba(0,106,77,0.12);
+}
+
+.nb-form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--primary-light);
+  border-radius: calc(var(--radius-lg) - 2px) calc(var(--radius-lg) - 2px) 0 0;
+}
+
+.nb-form-body { padding: 20px; }
+
+/* ── Team / desk checkbox grids ──────────────────────────────────────────── */
+
+.nb-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 6px;
+}
+
+.nb-desk-grid {
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+}
+
+.nb-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 8px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  font-size: 13px;
+  transition: border-color 0.12s, background 0.12s;
+  user-select: none;
+}
+
+.nb-checkbox-item:hover {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+.nb-checkbox-item input[type=checkbox] {
+  accent-color: var(--primary);
+  flex-shrink: 0;
+}
+
+.nb-desk-item { padding: 5px 7px; }
+
+.nb-desk-item-selected {
+  border-color: var(--primary);
+  background: var(--primary-light);
+}
+
+/* ── Colour palette swatches ─────────────────────────────────────────────── */
+
+.color-swatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  transition: transform 0.12s;
+  padding: 0;
+}
+
+.color-swatch:hover { transform: scale(1.18); }
+
+.color-swatch-selected {
+  border-color: var(--text);
+  box-shadow: 0 0 0 2px white inset;
+}

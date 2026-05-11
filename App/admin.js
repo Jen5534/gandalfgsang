@@ -7,6 +7,7 @@ const ADMIN_SETTINGS_KEY = 'mdb_admin_settings';
 let overviewTeam  = '';
 let occupancyTeam = '';
 let noShowsTeam   = '';
+let nbEditId      = null;
 
 const DESKS = [
   { id: 'G-W1', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat', 'dual-monitor'] },
@@ -71,6 +72,17 @@ function defaultSettings() {
       radiusM: 300,
     },
     disabledDesks: [],
+    buildings: ['London HQ'],
+    neighbourhoods: [
+      { id:'nb-window', name:'Window Bank',        building:'London HQ', color:'#0891b2',
+        deskIds:['G-W1','G-W2','G-W3','G-W4','F-W1','F-W2','F-W3'], assignedTeams:[] },
+      { id:'nb-quiet',  name:'Quiet Zone',         building:'London HQ', color:'#7c3aed',
+        deskIds:['G-Q1','G-Q2','G-Q3','F-Q1','F-Q2','F-Q3'], assignedTeams:[] },
+      { id:'nb-core',   name:'Core Desk Area',     building:'London HQ', color:'#1d4ed8',
+        deskIds:['G-C1','G-C2','G-C3','G-C4','G-C5','F-C1','F-C2','F-C3','F-C4'], assignedTeams:[] },
+      { id:'nb-collab', name:'Collaboration Zone', building:'London HQ', color:'#16a34a',
+        deskIds:['G-L1','G-L2','G-L3','F-L1','F-L2','F-L3'], assignedTeams:[] },
+    ],
   };
 }
 
@@ -83,7 +95,9 @@ function loadSettings() {
       bookingRules: { ...d.bookingRules, ...s.bookingRules },
       capacity:     { ...d.capacity,     ...s.capacity },
       office:       { ...d.office,       ...s.office },
-      disabledDesks: s.disabledDesks || [],
+      disabledDesks:  s.disabledDesks  || [],
+      buildings:      s.buildings      || d.buildings,
+      neighbourhoods: s.neighbourhoods || d.neighbourhoods,
     };
   } catch { return defaultSettings(); }
 }
@@ -146,6 +160,10 @@ function utilColor(pct) {
   return '#94a3b8';
 }
 
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function toast(msg, type = 'success') {
   const el = document.createElement('div');
   el.className = `toast toast-${type}`;
@@ -190,6 +208,7 @@ function navigate(view) {
     noshows:        renderNoShows,
     deskreport:     renderDeskReport,
     teamreport:     renderTeamReport,
+    neighbourhoods: renderNeighbourhoods,
     rules:          renderRules,
     deskconfig:     renderDeskConfig,
     officesettings: renderOfficeSettings,
@@ -1186,6 +1205,268 @@ function countWorkdaysByDow(daysBack, targetDow) {
     if (d.getDay() === targetDow) count++;
   }
   return count;
+}
+
+// ── Neighbourhoods ─────────────────────────────────────────────────────────
+
+const NB_PALETTE = ['#006A4D','#0891b2','#7c3aed','#1d4ed8','#16a34a','#be185d','#b45309','#dc2626','#0369a1','#374151'];
+
+function renderNeighbourhoods() {
+  const s        = loadSettings();
+  const nbs      = s.neighbourhoods;
+  const buildings = s.buildings;
+  const allTeams  = [...new Set(USERS_DATA.map(u => u.team))].sort();
+
+  const editBlock = nbEditId !== null ? nbFormHtml(nbEditId, s, allTeams) : '';
+
+  document.getElementById('view-neighbourhoods').innerHTML = `
+    <div class="page-header">
+      <h1>Neighbourhoods</h1>
+      <p>Group desks into areas, assign them to one or more buildings, and align teams. Teams can span multiple neighbourhoods and buildings.</p>
+    </div>
+
+    <div class="card one-col" style="margin-bottom:16px">
+      <div class="card-header">
+        <span class="card-title">Buildings &amp; Areas</span>
+        <div class="card-header-actions">
+          <input type="text" id="new-building-input" class="field-input"
+            placeholder="Building name…" style="width:200px;padding:6px 10px;font-size:13px"
+            onkeydown="if(event.key==='Enter')addBuilding()">
+          <button class="btn btn-sm btn-secondary" onclick="addBuilding()">Add</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding:14px 20px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${buildings.map(b => `
+            <span class="building-chip">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+              ${escHtml(b)}
+              ${buildings.length > 1
+                ? `<button class="chip-remove" onclick="removeBuilding(${JSON.stringify(b)})" title="Remove">×</button>`
+                : ''}
+            </span>
+          `).join('')}
+        </div>
+      </div>
+    </div>
+
+    ${editBlock}
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div style="font-size:14px;font-weight:600;color:var(--text)">
+        Neighbourhoods
+        <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:6px">${nbs.length} defined</span>
+      </div>
+      ${nbEditId === null
+        ? `<button class="btn btn-primary btn-sm" onclick="startAddNb()">+ Add Neighbourhood</button>`
+        : ''}
+    </div>
+
+    ${nbs.length === 0 ? `
+      <div style="text-align:center;padding:48px 24px;color:var(--text-muted)">
+        No neighbourhoods defined yet.
+        <br><button class="btn btn-primary" onclick="startAddNb()" style="margin-top:14px">Add your first neighbourhood</button>
+      </div>
+    ` : `
+      <div class="nb-grid">
+        ${nbs.map(nb => nbCardHtml(nb, allTeams)).join('')}
+      </div>
+    `}
+  `;
+}
+
+function nbCardHtml(nb, allTeams) {
+  const floors = [...new Set(
+    nb.deskIds.map(id => { const d = DESKS.find(x => x.id === id); return d?.floor === 'ground' ? 'G' : d?.floor === 'first' ? 'F' : null; }).filter(Boolean)
+  )].sort().join('/');
+  const floorLabel = floors ? ` · ${floors} floor` : '';
+
+  const teamChips = nb.assignedTeams.length
+    ? nb.assignedTeams.map(t => `<span class="nb-team-chip">${escHtml(t)}</span>`).join('')
+    : `<span style="font-size:12px;color:var(--text-muted)">No teams assigned</span>`;
+
+  const deskTags = nb.deskIds.map(id =>
+    `<span class="nb-desk-tag">${escHtml(id)}</span>`).join('');
+
+  return `
+    <div class="nb-card ${nbEditId === nb.id ? 'nb-card-editing' : ''}">
+      <div class="nb-card-accent" style="background:${nb.color}"></div>
+      <div class="nb-card-content">
+        <div class="nb-card-top">
+          <div>
+            <div class="nb-card-name">${escHtml(nb.name)}</div>
+            <div class="nb-card-meta">${escHtml(nb.building)}${floorLabel} · ${nb.deskIds.length} desk${nb.deskIds.length !== 1 ? 's' : ''}</div>
+          </div>
+          <div class="nb-card-actions">
+            <button class="btn-table" onclick="startEditNb(${JSON.stringify(nb.id)})">Edit</button>
+            <button class="btn-table btn-table-danger" onclick="deleteNb(${JSON.stringify(nb.id)})">Remove</button>
+          </div>
+        </div>
+        <div class="nb-card-teams">${teamChips}</div>
+        ${nb.deskIds.length ? `<div class="nb-desk-tags">${deskTags}</div>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+function nbFormHtml(editId, s, allTeams) {
+  const isNew = editId === 'new';
+  const nb = isNew
+    ? { name:'', building: s.buildings[0] || '', color:'#006A4D', deskIds:[], assignedTeams:[] }
+    : (s.neighbourhoods.find(n => n.id === editId) || { name:'', building:'', color:'#006A4D', deskIds:[], assignedTeams:[] });
+
+  const floorGroups = [
+    { label:'Ground Floor', desks: DESKS.filter(d => d.floor === 'ground') },
+    { label:'First Floor',  desks: DESKS.filter(d => d.floor === 'first')  },
+  ];
+
+  return `
+    <div class="nb-form-panel">
+      <div class="nb-form-header">
+        <span style="font-size:15px;font-weight:600">${isNew ? 'Add Neighbourhood' : 'Edit — ' + escHtml(nb.name)}</span>
+        <button class="agent-close-btn" onclick="cancelNbEdit()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="nb-form-body">
+
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label">Name</label>
+            <input type="text" class="field-input" id="nf-name" value="${escHtml(nb.name)}" placeholder="e.g. Window Bank">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Building</label>
+            <select class="field-input" id="nf-building">
+              ${s.buildings.map(b => `<option value="${escHtml(b)}" ${nb.building === b ? 'selected' : ''}>${escHtml(b)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Colour</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:2px">
+            ${NB_PALETTE.map(c => `
+              <button type="button" class="color-swatch ${nb.color === c ? 'color-swatch-selected' : ''}"
+                style="background:${c}" onclick="selectNbColor(this,'${c}')" data-color="${c}"></button>
+            `).join('')}
+          </div>
+          <input type="hidden" id="nf-color" value="${escHtml(nb.color)}">
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">
+            Assign Teams
+            <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;margin-left:6px">Teams can appear in multiple neighbourhoods and buildings</span>
+          </label>
+          <div class="nb-checkbox-grid" id="nf-teams">
+            ${allTeams.map(t => `
+              <label class="nb-checkbox-item">
+                <input type="checkbox" class="nb-team-cb" value="${escHtml(t)}" ${nb.assignedTeams.includes(t) ? 'checked' : ''}>
+                <span>${escHtml(t)}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Desks in this Neighbourhood</label>
+          ${floorGroups.map(fg => `
+            <div style="margin-bottom:14px">
+              <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">${fg.label}</div>
+              <div class="nb-checkbox-grid nb-desk-grid">
+                ${fg.desks.map(d => `
+                  <label class="nb-checkbox-item nb-desk-item ${nb.deskIds.includes(d.id) ? 'nb-desk-item-selected' : ''}">
+                    <input type="checkbox" class="nb-desk-cb" value="${d.id}"
+                      ${nb.deskIds.includes(d.id) ? 'checked' : ''}
+                      onchange="this.closest('label').classList.toggle('nb-desk-item-selected',this.checked)">
+                    <span style="font-family:monospace;font-size:12px">${d.id}</span>
+                  </label>
+                `).join('')}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+      </div>
+      <div class="settings-save-bar">
+        <button class="btn btn-secondary" onclick="cancelNbEdit()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveNb(${JSON.stringify(editId)})">${isNew ? 'Add Neighbourhood' : 'Save Changes'}</button>
+      </div>
+    </div>
+  `;
+}
+
+function startAddNb()    { nbEditId = 'new'; renderNeighbourhoods(); scrollToForm(); }
+function startEditNb(id) { nbEditId = id;    renderNeighbourhoods(); scrollToForm(); }
+function cancelNbEdit()  { nbEditId = null;  renderNeighbourhoods(); }
+
+function scrollToForm() {
+  setTimeout(() => document.querySelector('.nb-form-panel')?.scrollIntoView({ behavior:'smooth', block:'start' }), 50);
+}
+
+function selectNbColor(el, color) {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('color-swatch-selected'));
+  el.classList.add('color-swatch-selected');
+  document.getElementById('nf-color').value = color;
+}
+
+function saveNb(editId) {
+  const name = document.getElementById('nf-name').value.trim();
+  if (!name) { toast('Please enter a neighbourhood name', 'error'); return; }
+
+  const building      = document.getElementById('nf-building').value;
+  const color         = document.getElementById('nf-color').value;
+  const assignedTeams = [...document.querySelectorAll('.nb-team-cb:checked')].map(cb => cb.value);
+  const deskIds       = [...document.querySelectorAll('.nb-desk-cb:checked')].map(cb => cb.value);
+
+  const s = loadSettings();
+
+  if (editId === 'new') {
+    s.neighbourhoods.push({ id: 'nb-' + Date.now(), name, building, color, deskIds, assignedTeams });
+    toast('Neighbourhood added');
+  } else {
+    const i = s.neighbourhoods.findIndex(n => n.id === editId);
+    if (i !== -1) s.neighbourhoods[i] = { ...s.neighbourhoods[i], name, building, color, deskIds, assignedTeams };
+    toast('Neighbourhood updated');
+  }
+
+  saveSettings(s);
+  nbEditId = null;
+  renderNeighbourhoods();
+}
+
+function deleteNb(id) {
+  const s = loadSettings();
+  const nb = s.neighbourhoods.find(n => n.id === id);
+  if (!nb) return;
+  if (!confirm(`Remove neighbourhood "${nb.name}"?`)) return;
+  s.neighbourhoods = s.neighbourhoods.filter(n => n.id !== id);
+  saveSettings(s);
+  if (nbEditId === id) nbEditId = null;
+  toast('Neighbourhood removed');
+  renderNeighbourhoods();
+}
+
+function addBuilding() {
+  const input = document.getElementById('new-building-input');
+  const name  = input.value.trim();
+  if (!name) return;
+  const s = loadSettings();
+  if (s.buildings.includes(name)) { toast('Building already exists', 'error'); return; }
+  s.buildings.push(name);
+  saveSettings(s);
+  toast(`"${name}" added`);
+  renderNeighbourhoods();
+}
+
+function removeBuilding(name) {
+  const s = loadSettings();
+  if (s.buildings.length <= 1) { toast('Cannot remove the only building', 'error'); return; }
+  s.buildings = s.buildings.filter(b => b !== name);
+  saveSettings(s);
+  toast('Building removed');
+  renderNeighbourhoods();
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
