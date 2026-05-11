@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDB Admin</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="admin-style.css">
+</head>
+<body>
+
+  <div id="admin-login" class="login-screen">
+    <div class="login-card">
+      <div class="login-logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#006A4D"/><rect x="10" y="5" width="12" height="8" rx="1.5" fill="white"/><rect x="15" y="13" width="2" height="3" fill="white"/><rect x="3" y="16" width="26" height="2.5" rx="1" fill="white"/><rect x="5" y="18.5" width="3" height="7.5" rx="1" fill="white"/><rect x="24" y="18.5" width="3" height="7.5" rx="1" fill="white"/></svg>
+        MDB Admin
+      </div>
+      <p class="login-subtitle">Facilities &amp; Admin Portal</p>
+      <div style="margin-top:24px">
+        <label class="field-label">Admin PIN</label>
+        <input type="password" id="pin-input" class="field-input" placeholder="Enter PIN" maxlength="6"
+          onkeydown="if(event.key==='Enter')doAdminLogin()">
+        <div id="pin-error" style="color:var(--danger);font-size:12px;margin-top:6px;display:none">Incorrect PIN. Try <strong>1234</strong>.</div>
+      </div>
+      <button class="btn btn-primary btn-full" style="margin-top:16px" onclick="doAdminLogin()">Sign In</button>
+      <div style="margin-top:20px;text-align:center">
+        <a href="index.html" style="font-size:12px;color:var(--text-muted);text-decoration:none">&larr; Back to main app</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="admin-app" class="app hidden">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="rgba(255,255,255,0.15)"/><rect x="10" y="5" width="12" height="8" rx="1.5" fill="white"/><rect x="15" y="13" width="2" height="3" fill="white"/><rect x="3" y="16" width="26" height="2.5" rx="1" fill="white"/><rect x="5" y="18.5" width="3" height="7.5" rx="1" fill="white"/><rect x="24" y="18.5" width="3" height="7.5" rx="1" fill="white"/></svg>
+        <span>MDB Admin</span>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Reports</div>
+        <a href="#" class="nav-item" data-view="overview">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          Overview
+        </a>
+        <a href="#" class="nav-item" data-view="occupancy">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Occupancy
+        </a>
+        <a href="#" class="nav-item" data-view="noshows">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          No-shows
+        </a>
+        <a href="#" class="nav-item" data-view="deskreport">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M8 4v16M2 12h20"/></svg>
+          Desk Usage
+        </a>
+        <a href="#" class="nav-item" data-view="teamreport">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          Teams
+        </a>
+        <div class="nav-section-label" style="margin-top:12px">Settings</div>
+        <a href="#" class="nav-item" data-view="rules">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          Booking Rules
+        </a>
+        <a href="#" class="nav-item" data-view="deskconfig">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/></svg>
+          Desk Config
+        </a>
+        <a href="#" class="nav-item" data-view="officesettings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          Office &amp; Location
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-footer-btns">
+          <a href="index.html" class="btn-switch">Back to app</a>
+          <button class="btn-signout" onclick="adminLogout()">Sign out</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div id="view-overview"     class="view"></div>
+      <div id="view-occupancy"    class="view hidden"></div>
+      <div id="view-noshows"      class="view hidden"></div>
+      <div id="view-deskreport"   class="view hidden"></div>
+      <div id="view-teamreport"   class="view hidden"></div>
+      <div id="view-rules"        class="view hidden"></div>
+      <div id="view-deskconfig"   class="view hidden"></div>
+      <div id="view-officesettings" class="view hidden"></div>
+    </main>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="users-data-var.js"></script>
+  <script src="dummy-bookings-var.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
