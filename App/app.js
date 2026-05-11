@@ -12,6 +12,116 @@ const OFFICE_LAT = 51.5074;
 const OFFICE_LNG = -0.1278;
 const OFFICE_RADIUS_M = 300;
 
+// ── Desk data ──────────────────────────────────────────────────────────────
+
+const DESKS = [
+  { id: 'G-W1', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat', 'dual-monitor'] },
+  { id: 'G-W2', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat', 'standing-desk'] },
+  { id: 'G-W3', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat'] },
+  { id: 'G-W4', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat', 'quiet-area'] },
+  { id: 'G-Q1', floor: 'ground', neighbourhood: 'Quiet Zone',        features: ['quiet-area', 'dual-monitor'] },
+  { id: 'G-Q2', floor: 'ground', neighbourhood: 'Quiet Zone',        features: ['quiet-area'] },
+  { id: 'G-Q3', floor: 'ground', neighbourhood: 'Quiet Zone',        features: ['quiet-area', 'standing-desk'] },
+  { id: 'G-C1', floor: 'ground', neighbourhood: 'Core Desk Area',    features: ['dual-monitor'] },
+  { id: 'G-C2', floor: 'ground', neighbourhood: 'Core Desk Area',    features: ['dual-monitor', 'standing-desk'] },
+  { id: 'G-C3', floor: 'ground', neighbourhood: 'Core Desk Area',    features: ['accessible-desk', 'dual-monitor'] },
+  { id: 'G-C4', floor: 'ground', neighbourhood: 'Core Desk Area',    features: [] },
+  { id: 'G-C5', floor: 'ground', neighbourhood: 'Core Desk Area',    features: ['standing-desk'] },
+  { id: 'G-L1', floor: 'ground', neighbourhood: 'Collaboration Zone',features: ['near-team', 'dual-monitor'] },
+  { id: 'G-L2', floor: 'ground', neighbourhood: 'Collaboration Zone',features: ['near-team'] },
+  { id: 'G-L3', floor: 'ground', neighbourhood: 'Collaboration Zone',features: ['near-team', 'standing-desk'] },
+  { id: 'F-W1', floor: 'first',  neighbourhood: 'Window Bank',       features: ['window-seat', 'dual-monitor'] },
+  { id: 'F-W2', floor: 'first',  neighbourhood: 'Window Bank',       features: ['window-seat'] },
+  { id: 'F-W3', floor: 'first',  neighbourhood: 'Window Bank',       features: ['window-seat', 'standing-desk'] },
+  { id: 'F-Q1', floor: 'first',  neighbourhood: 'Quiet Zone',        features: ['quiet-area', 'dual-monitor'] },
+  { id: 'F-Q2', floor: 'first',  neighbourhood: 'Quiet Zone',        features: ['quiet-area', 'standing-desk'] },
+  { id: 'F-Q3', floor: 'first',  neighbourhood: 'Quiet Zone',        features: ['quiet-area'] },
+  { id: 'F-C1', floor: 'first',  neighbourhood: 'Core Desk Area',    features: ['dual-monitor'] },
+  { id: 'F-C2', floor: 'first',  neighbourhood: 'Core Desk Area',    features: ['accessible-desk'] },
+  { id: 'F-C3', floor: 'first',  neighbourhood: 'Core Desk Area',    features: ['standing-desk', 'dual-monitor'] },
+  { id: 'F-C4', floor: 'first',  neighbourhood: 'Core Desk Area',    features: [] },
+  { id: 'F-L1', floor: 'first',  neighbourhood: 'Collaboration Zone',features: ['near-team'] },
+  { id: 'F-L2', floor: 'first',  neighbourhood: 'Collaboration Zone',features: ['near-team', 'dual-monitor'] },
+  { id: 'F-L3', floor: 'first',  neighbourhood: 'Collaboration Zone',features: ['near-team', 'standing-desk'] },
+];
+
+// ── Local bookings store (localStorage) ───────────────────────────────────
+
+const BOOKINGS_KEY = 'findMyDesk_bookings';
+
+function loadBookings() {
+  try { return JSON.parse(localStorage.getItem(BOOKINGS_KEY) || '[]'); } catch { return []; }
+}
+
+function saveBookings(bookings) {
+  localStorage.setItem(BOOKINGS_KEY, JSON.stringify(bookings));
+}
+
+function generateId() {
+  return (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+}
+
+function enrichBooking(b) {
+  const user = allUsers.find(u => u.id === b.userId) || null;
+  const desk = DESKS.find(d => d.id === b.deskId) || null;
+  return { ...b, user, desk };
+}
+
+// ── Data access ────────────────────────────────────────────────────────────
+
+async function fetchUsers() {
+  const r = await fetch('../data/users.json');
+  if (!r.ok) throw new Error('Could not load users.json');
+  return r.json();
+}
+
+function getBookings({ userId, date, upcoming } = {}) {
+  let list = loadBookings();
+  if (userId) list = list.filter(b => b.userId === userId);
+  if (date)   list = list.filter(b => b.date === date);
+  if (upcoming) list = list.filter(b => b.date >= today()).sort((a, b) => a.date.localeCompare(b.date));
+  return list.map(enrichBooking);
+}
+
+function createBooking({ userId, deskId, date, slot }) {
+  const bookings = loadBookings();
+  const conflicts = bookings.filter(b => b.deskId === deskId && b.date === date);
+  for (const c of conflicts) {
+    if (slotsConflict(c.slot || 'full', slot)) throw new Error('That desk slot is already booked');
+  }
+  const booking = { id: generateId(), userId, deskId, date, slot, checkedIn: false, checkedInAt: null };
+  bookings.push(booking);
+  saveBookings(bookings);
+  return enrichBooking(booking);
+}
+
+function deleteBooking(id) {
+  saveBookings(loadBookings().filter(b => b.id !== id));
+  return { success: true };
+}
+
+function checkInBookingLocal(id) {
+  const bookings = loadBookings();
+  const b = bookings.find(b => b.id === id);
+  if (!b) throw new Error('Booking not found');
+  b.checkedIn = true;
+  b.checkedInAt = new Date().toISOString();
+  saveBookings(bookings);
+  return enrichBooking(b);
+}
+
+function getDesks({ floor, date } = {}) {
+  const dayBookings = date ? loadBookings().filter(b => b.date === date) : [];
+  return DESKS
+    .filter(d => !floor || d.floor === floor)
+    .map(d => {
+      const db = dayBookings.filter(b => b.deskId === d.id);
+      const amBooked = db.some(b => slotsConflict(b.slot || 'full', 'am'));
+      const pmBooked = db.some(b => slotsConflict(b.slot || 'full', 'pm'));
+      return { ...d, amAvailable: !amBooked, pmAvailable: !pmBooked, available: !amBooked || !pmBooked };
+    });
+}
+
 // ── Utilities ──────────────────────────────────────────────────────────────
 
 function toDateStr(d) { return d.toISOString().slice(0, 10); }
@@ -111,26 +221,6 @@ function distanceMeters(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
-// ── API ────────────────────────────────────────────────────────────────────
-
-async function apiGet(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
-}
-
-async function apiPost(url, body) {
-  const r = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e.error || 'Request failed'); }
-  return r.json();
-}
-
-async function apiDelete(url) {
-  const r = await fetch(url, { method:'DELETE' });
-  if (!r.ok) throw new Error(await r.text());
-  return r.json();
-}
-
 // ── Toast ──────────────────────────────────────────────────────────────────
 
 function toast(msg, type = 'info') {
@@ -167,7 +257,7 @@ function navigate(view) {
 // ── Login ──────────────────────────────────────────────────────────────────
 
 async function initLogin() {
-  allUsers = await apiGet('/api/users');
+  allUsers = await fetchUsers();
   allUsers.sort((a, b) => a.fullName.localeCompare(b.fullName));
   const sel = document.getElementById('user-select');
   sel.innerHTML = '<option value="">-- Choose employee --</option>' +
@@ -203,7 +293,7 @@ function logout() {
 async function tryAutoCheckIn() {
   if (!navigator.geolocation) return;
 
-  const bookings = await apiGet(`/api/bookings?userId=${currentUser.id}&date=${today()}`);
+  const bookings = getBookings({ userId: currentUser.id, date: today() });
   const unchecked = bookings.filter(b => !b.checkedIn);
   if (unchecked.length === 0) return;
 
@@ -212,22 +302,21 @@ async function tryAutoCheckIn() {
       const dist = distanceMeters(pos.coords.latitude, pos.coords.longitude, OFFICE_LAT, OFFICE_LNG);
       if (dist <= OFFICE_RADIUS_M) {
         for (const b of unchecked) {
-          await apiPost(`/api/bookings/${b.id}/checkin`, {});
+          checkInBookingLocal(b.id);
         }
         toast('Location verified — checked in automatically', 'success');
         renderDashboard();
       }
     },
-    () => {} // Permission denied or unavailable — silent fail, manual button shown
+    () => {}
   );
 }
 
 async function checkInBooking(bookingId) {
   try {
-    await apiPost(`/api/bookings/${bookingId}/checkin`, {});
+    checkInBookingLocal(bookingId);
     toast('Checked in successfully', 'success');
     renderDashboard();
-    // Refresh my-bookings if visible
     const mbView = document.getElementById('view-my-bookings');
     if (!mbView.classList.contains('hidden')) renderMyBookings();
   } catch (e) {
@@ -241,10 +330,8 @@ async function renderDashboard() {
   const container = document.getElementById('view-dashboard');
   container.innerHTML = '<div style="color:#94a3b8;padding:20px">Loading...</div>';
 
-  const [allUpcoming, todayBookings] = await Promise.all([
-    apiGet(`/api/bookings?userId=${currentUser.id}&upcoming=true`),
-    apiGet(`/api/bookings?date=${today()}`)
-  ]);
+  const allUpcoming  = getBookings({ userId: currentUser.id, upcoming: true });
+  const todayBookings = getBookings({ date: today() });
 
   const myTodayBookings = allUpcoming.filter(b => b.date === today());
   const todayStatus = getWorkingStatus(currentUser, today());
@@ -255,15 +342,12 @@ async function renderDashboard() {
 
   let suggestions = [];
   if (myTodayBookings.length === 0 && (todayStatus === 'office' || todayAnchor)) {
-    try {
-      const desks = await apiGet(`/api/desks?date=${today()}`);
-      suggestions = desks.filter(d => d.available)
-        .map(d => ({ ...d, score: scoreDesk(d, currentUser) }))
-        .sort((a, b) => b.score - a.score).slice(0, 3);
-    } catch (e) {}
+    const desks = getDesks({ date: today() });
+    suggestions = desks.filter(d => d.available)
+      .map(d => ({ ...d, score: scoreDesk(d, currentUser) }))
+      .sort((a, b) => b.score - a.score).slice(0, 3);
   }
 
-  // Check-in banner
   const checkinBanner = (() => {
     if (myTodayBookings.length === 0) return '';
     const allCheckedIn = myTodayBookings.every(b => b.checkedIn);
@@ -375,7 +459,6 @@ async function renderDashboard() {
     </div>` : ''}
   `;
 
-  // Attempt auto check-in after render
   tryAutoCheckIn();
 }
 
@@ -442,10 +525,8 @@ async function renderBookView() {
     return `${s} – ${e}`;
   })();
 
-  const [allUpcoming, desks] = await Promise.all([
-    apiGet(`/api/bookings?userId=${currentUser.id}&upcoming=true`),
-    selectedBookDate ? apiGet(`/api/desks?floor=${selectedBookFloor}&date=${selectedBookDate}`) : Promise.resolve([])
-  ]);
+  const allUpcoming = getBookings({ userId: currentUser.id, upcoming: true });
+  const desks = selectedBookDate ? getDesks({ floor: selectedBookFloor, date: selectedBookDate }) : [];
 
   const userBookingDates = new Set(allUpcoming.map(b => b.date));
   const myBookingsForDate = allUpcoming.filter(b => b.date === selectedBookDate);
@@ -555,7 +636,6 @@ function renderDeskCard(desk, myBookingsForDate, mySlots, date) {
   const myDeskBooking = myBookingsForDate.find(b => b.deskId === desk.id);
   const isMyDesk = !!myDeskBooking;
 
-  // Which slots can the current user still book on this desk?
   const canBookAm = desk.amAvailable && !mySlots.some(s => slotsConflict(s, 'am'));
   const canBookPm = desk.pmAvailable && !mySlots.some(s => slotsConflict(s, 'pm'));
   const canBookFull = desk.amAvailable && desk.pmAvailable && mySlots.length === 0;
@@ -589,7 +669,6 @@ function renderDeskCard(desk, myBookingsForDate, mySlots, date) {
         ${canBookFull  ? `<button class="btn btn-primary btn-sm" onclick="confirmBook('${desk.id}','${date}','full')">Full Day</button>` : ''}
         ${canBookAm && !canBookFull ? `<button class="btn btn-primary btn-sm" onclick="confirmBook('${desk.id}','${date}','am')">Book AM</button>` : ''}
         ${canBookPm && !canBookFull ? `<button class="btn btn-secondary btn-sm" onclick="confirmBook('${desk.id}','${date}','pm')">Book PM</button>` : ''}
-        ${canBookAm && canBookPm && !canBookFull ? '' /* full not available but both slots are — only show separate buttons */ : ''}
         ${myDeskBooking ? `<button class="btn btn-sm btn-outline-danger" onclick="cancelBookingById('${myDeskBooking.id}')">Cancel</button>` : ''}
       </div>` : ''}
     </div>
@@ -630,7 +709,7 @@ function confirmBook(deskId, date, slot) {
 async function doBook(deskId, date, slot) {
   hideModal();
   try {
-    await apiPost('/api/bookings', { userId: currentUser.id, deskId, date, slot });
+    createBooking({ userId: currentUser.id, deskId, date, slot });
     toast(`${deskId} booked — ${slotLabel(slot)} on ${displayShortDate(date)}`, 'success');
     renderBookView();
   } catch (e) {
@@ -640,7 +719,7 @@ async function doBook(deskId, date, slot) {
 
 async function cancelBookingById(bookingId) {
   try {
-    await apiDelete(`/api/bookings/${bookingId}`);
+    deleteBooking(bookingId);
     toast('Booking cancelled', 'info');
     renderBookView();
   } catch (e) {
@@ -654,7 +733,7 @@ async function renderMyBookings() {
   const container = document.getElementById('view-my-bookings');
   container.innerHTML = '<div style="color:#94a3b8;padding:20px">Loading...</div>';
 
-  const bookings = await apiGet(`/api/bookings?userId=${currentUser.id}&upcoming=true`);
+  const bookings = getBookings({ userId: currentUser.id, upcoming: true });
 
   container.innerHTML = `
     <div class="page-header">
@@ -737,7 +816,7 @@ function promptCancel(bookingId, deskId, date) {
 async function doCancel(bookingId, label) {
   hideModal();
   try {
-    await apiDelete(`/api/bookings/${bookingId}`);
+    deleteBooking(bookingId);
     toast(`Booking cancelled: ${label}`, 'info');
     renderMyBookings();
   } catch (e) {
@@ -771,7 +850,7 @@ async function loadWhosIn() {
   if (!content) return;
   content.innerHTML = '<div style="color:#94a3b8">Loading...</div>';
 
-  const bookings = await apiGet(`/api/bookings?date=${date}`);
+  const bookings = getBookings({ date });
 
   if (bookings.length === 0) {
     content.innerHTML = `
