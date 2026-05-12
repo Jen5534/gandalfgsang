@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MDB</title>
+  <link rel="stylesheet" href="../App/style.css">
+</head>
+<body>
+
+  <div id="login-screen" class="login-screen">
+    <div class="login-card sso-card">
+      <div class="login-logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="#006A4D"/><rect x="10" y="5" width="12" height="8" rx="1.5" fill="white"/><rect x="15" y="13" width="2" height="3" fill="white"/><rect x="3" y="16" width="26" height="2.5" rx="1" fill="white"/><rect x="5" y="18.5" width="3" height="7.5" rx="1" fill="white"/><rect x="24" y="18.5" width="3" height="7.5" rx="1" fill="white"/></svg>
+        MDB
+      </div>
+      <p class="login-subtitle">My Desk Booker</p>
+      <div class="sso-status" id="sso-status">
+        <div class="sso-spinner" id="sso-spinner"></div>
+        <span id="sso-message">Authenticating with SSO&hellip;</span>
+      </div>
+      <button class="btn btn-primary btn-full" id="sso-signin-btn" style="display:none" onclick="ssoLogin()">Sign in again</button>
+    </div>
+  </div>
+
+  <div id="app" class="app hidden">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <svg width="22" height="22" viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="rgba(255,255,255,0.15)"/><rect x="10" y="5" width="12" height="8" rx="1.5" fill="white"/><rect x="15" y="13" width="2" height="3" fill="white"/><rect x="3" y="16" width="26" height="2.5" rx="1" fill="white"/><rect x="5" y="18.5" width="3" height="7.5" rx="1" fill="white"/><rect x="24" y="18.5" width="3" height="7.5" rx="1" fill="white"/></svg>
+        <span>MDB</span>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item" data-view="dashboard">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+          Dashboard
+        </a>
+        <a href="#" class="nav-item" data-view="book">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="16" x2="15" y2="16"/><line x1="12" y1="13" x2="12" y2="19"/></svg>
+          Book a Desk
+        </a>
+        <a href="#" class="nav-item" data-view="my-bookings">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          My Bookings
+        </a>
+        <a href="#" class="nav-item" data-view="whos-in">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          Who's In
+        </a>
+        <a href="#" class="nav-item" data-view="floorplan">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          Floor Plan
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar" id="sidebar-avatar"></div>
+          <div class="user-meta">
+            <div class="user-name" id="sidebar-name"></div>
+            <div class="user-role" id="sidebar-role"></div>
+          </div>
+        </div>
+        <div class="sidebar-footer-btns">
+          <button class="btn-signout" id="logout-btn">Sign out</button>
+          <button class="btn-switch" id="switch-btn">Switch account</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div id="view-dashboard" class="view"></div>
+      <div id="view-book" class="view hidden"></div>
+      <div id="view-my-bookings" class="view hidden"></div>
+      <div id="view-whos-in" class="view hidden"></div>
+      <div id="view-floorplan" class="view hidden"></div>
+    </main>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal">
+      <div id="modal-body" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- CHANGE 1: MSAL — real Entra ID auth instead of the simulated SSO flow -->
+  <script src="https://alcdn.msauth.net/browser/3.27.0/js/msal-browser.min.js"></script>
+
+  <!-- CHANGE 2: Runtime environment config injected by Azure Static Web Apps.
+       Set AZURE_CLIENT_ID and AZURE_TENANT_ID in the Static Web Apps portal
+       under Settings > Environment variables. Never hardcode these values here. -->
+  <script>
+    window.__env = {
+      AZURE_CLIENT_ID: '%AZURE_CLIENT_ID%',
+      AZURE_TENANT_ID: '%AZURE_TENANT_ID%'
+    };
+  </script>
+
+  <!-- CHANGE 3: auth.js and data-layer.js replace the three old script tags.
+       - historic-data.js  → gone (data comes from /api/historic-patterns)
+       - users-data.js     → gone (users come from Microsoft Graph)
+       - auth.js           → real MSAL login, calls handleLoginRedirect() on load
+       - data-layer.js     → same function signatures, fetch() instead of localStorage
+       - app.js            → unchanged -->
+  <script src="auth.js"></script>
+  <script src="data-layer.js"></script>
+  <script src="../App/app.js"></script>
+
+  <!-- CHANGE 4: Kick off the MSAL redirect handler immediately after scripts load.
+       In the original app.js, initLogin() runs on DOMContentLoaded and calls
+       the fake ssoLogin(). Here we let MSAL handle the redirect response first;
+       handleLoginRedirect() calls loginAs() which triggers the same app startup. -->
+  <script>
+    handleLoginRedirect().catch(err => {
+      document.getElementById('sso-message').textContent = 'Sign-in failed. Please try again.';
+      document.getElementById('sso-signin-btn').style.display = '';
+      console.error(err);
+    });
+  </script>
+
+</body>
+</html>
