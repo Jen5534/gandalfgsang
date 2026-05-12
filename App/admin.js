@@ -215,6 +215,7 @@ function navigate(view) {
     deskreport:     renderDeskReport,
     teamreport:     renderTeamReport,
     neighbourhoods: renderNeighbourhoods,
+    feedback:       renderAdminFeedback,
     aianalysis:     renderAiAnalysis,
     rules:          renderRules,
     deskconfig:     renderDeskConfig,
@@ -1513,6 +1514,127 @@ function removeBuilding(name) {
   saveSettings(s);
   toast('Building removed');
   renderNeighbourhoods();
+}
+
+// ── Feedback (admin) ──────────────────────────────────────────────────────
+
+const FEEDBACK_KEY = 'mdb_feedback';
+
+function loadAllFeedback() {
+  try { return JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]'); } catch { return []; }
+}
+
+function setFeedbackStatus(id, status) {
+  const items = loadAllFeedback();
+  const item  = items.find(f => f.id === id);
+  if (item) { item.status = status; localStorage.setItem(FEEDBACK_KEY, JSON.stringify(items)); }
+  renderAdminFeedback();
+  toast(`Marked as ${status}`);
+}
+
+function renderAdminFeedback() {
+  const all   = loadAllFeedback().sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
+  const total = all.length;
+  const newCount       = all.filter(f => f.status === 'new').length;
+  const reviewedCount  = all.filter(f => f.status === 'reviewed').length;
+  const actionedCount  = all.filter(f => f.status === 'actioned').length;
+
+  const typeConfig = {
+    suggestion: { label: 'Suggestion', color: '#0891b2', bg: '#E0F2FE' },
+    bug:        { label: 'Bug / Issue', color: '#DC2626', bg: '#FEE2E2' },
+    compliment: { label: 'Compliment', color: '#16a34a', bg: '#F0FDF4' },
+    other:      { label: 'Other',      color: '#7c3aed', bg: '#F3E8FF' },
+  };
+
+  const statusBadge = s => {
+    const map = { new: ['#D97706','#FEF3C7','New'], reviewed: ['#0891b2','#E0F2FE','Reviewed'], actioned: ['#16a34a','#F0FDF4','Actioned'] };
+    const [c, bg, label] = map[s] || map.new;
+    return `<span style="font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:${bg};color:${c}">${label}</span>`;
+  };
+
+  const byCat = Object.entries(typeConfig).map(([k, cfg]) => ({
+    ...cfg, count: all.filter(f => f.type === k).length,
+  }));
+
+  const avgRating = (() => {
+    const rated = all.filter(f => f.rating);
+    if (!rated.length) return null;
+    return (rated.reduce((s, f) => s + f.rating, 0) / rated.length).toFixed(1);
+  })();
+
+  document.getElementById('view-feedback').innerHTML = `
+    <div class="page-header">
+      <h1>User Feedback</h1>
+      <p>${total} submission${total !== 1 ? 's' : ''} from users · manage and track progress</p>
+    </div>
+
+    <div class="admin-stats" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+      <div class="admin-stat">
+        <div class="admin-stat-value">${total}</div>
+        <div class="admin-stat-label">Total</div>
+      </div>
+      <div class="admin-stat">
+        <div class="admin-stat-value" style="color:#D97706">${newCount}</div>
+        <div class="admin-stat-label">New</div>
+      </div>
+      <div class="admin-stat">
+        <div class="admin-stat-value">${actionedCount}</div>
+        <div class="admin-stat-label">Actioned</div>
+      </div>
+      <div class="admin-stat">
+        <div class="admin-stat-value">${avgRating ? avgRating + ' ★' : '–'}</div>
+        <div class="admin-stat-label">Avg Rating</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 2fr;gap:16px;align-items:start">
+      <div class="card">
+        <div class="card-header"><span class="card-title">By Category</span></div>
+        <div class="card-body" style="padding:8px 16px 16px">
+          ${byCat.map(c => `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+              <span style="font-size:12.5px;font-weight:600;padding:2px 9px;border-radius:99px;background:${c.bg};color:${c.color}">${c.label}</span>
+              <span style="font-size:15px;font-weight:700;color:var(--text)">${c.count}</span>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Submissions</span>
+          ${newCount > 0 ? `<span class="pill pill-amber">${newCount} unreviewed</span>` : ''}
+        </div>
+        <div class="card-body" style="padding:0">
+          ${total === 0
+            ? `<p style="padding:20px;font-size:13px;color:var(--text-muted)">No feedback submitted yet.</p>`
+            : all.map(f => {
+                const cfg = typeConfig[f.type] || typeConfig.other;
+                const d   = new Date(f.submittedAt).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+                const t   = new Date(f.submittedAt).toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit' });
+                const stars = f.rating ? `<span style="color:#D97706;letter-spacing:1px;font-size:11px">${'★'.repeat(f.rating)}${'☆'.repeat(5-f.rating)}</span>` : '';
+                return `
+                  <div class="feedback-admin-row">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+                      <span style="font-size:11.5px;font-weight:700;padding:2px 9px;border-radius:99px;background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
+                      ${statusBadge(f.status)}
+                      ${stars}
+                      <span style="font-size:11.5px;color:var(--text-muted);margin-left:auto">${d} ${t}</span>
+                    </div>
+                    <div style="font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:3px">${escHtml(f.subject || '(no subject)')}</div>
+                    <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:6px">${escHtml(f.message)}</div>
+                    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                      <span style="font-size:11.5px;color:var(--text-muted)">From: <strong>${escHtml(f.userName)}${f.userTeam ? ' · ' + escHtml(f.userTeam) : ''}</strong></span>
+                      <div style="margin-left:auto;display:flex;gap:6px">
+                        ${f.status === 'new'      ? `<button class="btn btn-sm btn-secondary" onclick="setFeedbackStatus('${f.id}','reviewed')">Mark reviewed</button>` : ''}
+                        ${f.status !== 'actioned' ? `<button class="btn btn-sm btn-primary"   onclick="setFeedbackStatus('${f.id}','actioned')">Mark actioned</button>` : ''}
+                      </div>
+                    </div>
+                  </div>`;
+              }).join('')}
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 // ── AI Analysis ───────────────────────────────────────────────────────────

@@ -62,6 +62,32 @@ const DESKS = [
   { id: 'F-L3', floor: 'first',  neighbourhood: 'Collaboration Zone',features: ['near-team', 'standing-desk'],           env: ['lively'] },
 ];
 
+// ── Feedback store ─────────────────────────────────────────────────────────
+
+const FEEDBACK_KEY = 'mdb_feedback';
+
+function loadFeedback() {
+  try { return JSON.parse(localStorage.getItem(FEEDBACK_KEY) || '[]'); } catch { return []; }
+}
+function saveFeedback(items) { localStorage.setItem(FEEDBACK_KEY, JSON.stringify(items)); }
+
+function submitFeedback({ type, subject, message, rating, anonymous }) {
+  const items = loadFeedback();
+  items.push({
+    id:          generateId(),
+    userId:      currentUser.id,
+    userName:    anonymous ? 'Anonymous' : currentUser.fullName,
+    userTeam:    anonymous ? null : currentUser.team,
+    type,
+    subject:     subject.trim(),
+    message:     message.trim(),
+    rating:      rating || null,
+    submittedAt: new Date().toISOString(),
+    status:      'new',
+  });
+  saveFeedback(items);
+}
+
 // ── Local bookings store (localStorage) ───────────────────────────────────
 
 const BOOKINGS_KEY = 'findMyDesk_bookings';
@@ -323,6 +349,7 @@ function navigate(view) {
   else if (view === 'whos-in') renderWhosIn();
   else if (view === 'floorplan') renderFloorPlan();
   else if (view === 'team-bookings') renderTeamBookings();
+  else if (view === 'feedback') renderFeedback();
 }
 
 // ── Login ──────────────────────────────────────────────────────────────────
@@ -2625,6 +2652,139 @@ function addDelegateAndRefresh() {
 function removeDelegateAndRefresh(userId) {
   removeDelegate(userId);
   renderDelegatesModal();
+}
+
+// ── Feedback view ─────────────────────────────────────────────────────────
+
+function renderFeedback() {
+  const container = document.getElementById('view-feedback');
+  const myPast = loadFeedback()
+    .filter(f => f.userId === currentUser.id)
+    .sort((a, b) => b.submittedAt.localeCompare(a.submittedAt))
+    .slice(0, 5);
+
+  const typeConfig = {
+    suggestion: { label: 'Suggestion',   color: '#0891b2', bg: '#E0F2FE' },
+    bug:        { label: 'Bug / Issue',  color: '#DC2626', bg: '#FEE2E2' },
+    compliment: { label: 'Compliment',   color: '#16a34a', bg: '#F0FDF4' },
+    other:      { label: 'Other',        color: '#7c3aed', bg: '#F3E8FF' },
+  };
+
+  container.innerHTML = `
+    <div class="page-header">
+      <h1>Feedback</h1>
+      <p>Help us improve Perch — your suggestions go straight to the facilities team</p>
+    </div>
+
+    <div class="two-col" style="align-items:start">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Share your thoughts</span></div>
+        <div class="card-body" style="padding:20px">
+
+          <div style="margin-bottom:18px">
+            <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:8px">Type</div>
+            <div class="feedback-type-row">
+              ${Object.entries(typeConfig).map(([val, cfg]) => `
+                <label class="feedback-type-btn">
+                  <input type="radio" name="fb-type" value="${val}" ${val === 'suggestion' ? 'checked' : ''} onchange="updateFeedbackTypeUI()">
+                  <span>${cfg.label}</span>
+                </label>`).join('')}
+            </div>
+          </div>
+
+          <div style="margin-bottom:18px">
+            <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:8px">Overall satisfaction</div>
+            <div class="star-rating" id="star-rating">
+              ${[1,2,3,4,5].map(n => `
+                <button class="star-btn" data-val="${n}" onclick="setFeedbackRating(${n})" type="button">★</button>`).join('')}
+            </div>
+            <input type="hidden" id="fb-rating" value="">
+          </div>
+
+          <div style="margin-bottom:14px">
+            <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);display:block;margin-bottom:6px">Subject</label>
+            <input type="text" id="fb-subject" class="field-input" placeholder="Brief summary…" maxlength="80">
+          </div>
+
+          <div style="margin-bottom:18px">
+            <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);display:block;margin-bottom:6px">Details</label>
+            <textarea id="fb-message" class="field-input" rows="5" placeholder="Tell us more…" style="resize:vertical;min-height:100px"></textarea>
+          </div>
+
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+            <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-secondary);cursor:pointer">
+              <input type="checkbox" id="fb-anon"> Submit anonymously
+            </label>
+            <button class="btn btn-primary" onclick="doSubmitFeedback()">Submit Feedback</button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Your recent submissions</span></div>
+          <div class="card-body" style="padding:8px 16px 16px">
+            ${myPast.length === 0
+              ? `<p style="font-size:13px;color:var(--text-muted);padding:8px 0">No submissions yet.</p>`
+              : myPast.map(f => {
+                  const cfg = typeConfig[f.type] || typeConfig.other;
+                  const d = new Date(f.submittedAt).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' });
+                  const stars = f.rating ? '★'.repeat(f.rating) + '☆'.repeat(5 - f.rating) : '';
+                  return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+                    <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px">
+                      <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:${cfg.bg};color:${cfg.color}">${cfg.label}</span>
+                      ${stars ? `<span style="font-size:11px;color:#D97706;letter-spacing:1px">${stars}</span>` : ''}
+                      <span style="font-size:11px;color:var(--text-muted);margin-left:auto">${d}</span>
+                    </div>
+                    <div style="font-size:13px;font-weight:600;color:var(--text)">${f.subject || '(no subject)'}</div>
+                  </div>`;
+                }).join('')}
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="card-body" style="padding:16px 18px">
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">How feedback is used</div>
+            <ul style="font-size:12.5px;color:var(--text-secondary);padding-left:16px;line-height:1.8;margin:0">
+              <li>Suggestions are reviewed weekly by the facilities team</li>
+              <li>Bug reports are triaged within 48 hours</li>
+              <li>You'll be updated via your team if your idea is taken forward</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  requestAnimationFrame(updateFeedbackTypeUI);
+}
+
+function updateFeedbackTypeUI() {
+  document.querySelectorAll('.feedback-type-btn').forEach(label => {
+    const radio = label.querySelector('input[type=radio]');
+    label.classList.toggle('active', radio && radio.checked);
+  });
+}
+
+function setFeedbackRating(val) {
+  document.getElementById('fb-rating').value = val;
+  document.querySelectorAll('.star-btn').forEach(btn => {
+    btn.classList.toggle('star-active', parseInt(btn.dataset.val) <= val);
+  });
+}
+
+function doSubmitFeedback() {
+  const type    = document.querySelector('input[name="fb-type"]:checked')?.value || 'other';
+  const subject = document.getElementById('fb-subject').value.trim();
+  const message = document.getElementById('fb-message').value.trim();
+  const rating  = parseInt(document.getElementById('fb-rating').value) || null;
+  const anon    = document.getElementById('fb-anon').checked;
+
+  if (!subject) { toast('Please add a subject', 'error'); return; }
+  if (!message) { toast('Please add some detail', 'error'); return; }
+
+  submitFeedback({ type, subject, message, rating, anonymous: anon });
+  toast('Thank you — your feedback has been submitted', 'success');
+  renderFeedback();
 }
 
 // ── Walk-in auto-booking ───────────────────────────────────────────────────
