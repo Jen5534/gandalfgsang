@@ -304,6 +304,11 @@ function scoreDesk(desk, user) {
   if (ep.temp  && (desk.env || []).includes(ep.temp))  s += 1;
   if (ep.light && (desk.env || []).includes(ep.light)) s += 1;
   if (ep.noise && (desk.env || []).includes(ep.noise)) s += 1;
+  // Extended prefs: favourite desks bonus
+  if (typeof loadUserExtPrefs === 'function' && currentUser && user.id === currentUser.id) {
+    const extPrefs = loadUserExtPrefs(user.id);
+    if ((extPrefs.favoriteDeskIds || []).includes(desk.id)) s += 4;
+  }
   return s;
 }
 
@@ -367,6 +372,8 @@ function navigate(view) {
   else if (view === 'floorplan') renderFloorPlan();
   else if (view === 'team-bookings') renderTeamBookings();
   else if (view === 'feedback') renderFeedback();
+  else if (view === 'declare') renderDeclareView();
+  else if (view === 'my-allocation') renderMyAllocationView();
 }
 
 // ── Login ──────────────────────────────────────────────────────────────────
@@ -865,7 +872,8 @@ function renderComfortProfile() {
       </div>
       ${hasPrefs ? `<p style="font-size:12px;color:var(--text-muted);margin-top:14px">Desks matching your preferences are highlighted when booking.</p>` : ''}
     </div>
-  </div>`;
+  </div>
+  ${typeof renderExtPrefsSection === 'function' ? renderExtPrefsSection() : ''}`;
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
@@ -920,6 +928,48 @@ async function renderDashboard() {
 
   const unbookedAnchorDays = getUnbookedAnchorDays(14);
 
+  // ── New allocation/declaration dashboard cards ─────────────────────────
+  const myDecls = loadDeclarations().filter(d => {
+    const mon = weekMonday(today());
+    return d.userId === currentUser.id && d.date >= mon && d.date <= addDays(mon, 4);
+  });
+  const todayAlloc = getAllocationForUser(currentUser.id, today());
+  const tomorrowAlloc = getAllocationForUser(currentUser.id, addDays(today(), 1));
+  const noShowWarn = getNoShowWarning(currentUser.id);
+
+  const declCard = myDecls.length === 0 ? `
+    <div class="card one-col" style="margin-bottom:16px;border:1.5px solid #FDE68A;background:#FFFBEB">
+      <div class="card-body" style="padding:14px 18px;display:flex;align-items:center;gap:12px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:13px;color:#92400E">No office days declared this week</div>
+          <div style="font-size:12px;color:#B45309">Declare your office days so the engine can allocate your desk in advance — no rushing needed.</div>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="navigate('declare')">Declare</button>
+      </div>
+    </div>` : '';
+
+  const allocCard = tomorrowAlloc && tomorrowAlloc.status === 'pending' ? `
+    <div class="card one-col" style="margin-bottom:16px;border:1.5px solid #A7D7C5;background:#E6F2EE">
+      <div class="card-body" style="padding:14px 18px;display:flex;align-items:center;gap:12px">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#006A4D" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:13px;color:#006A4D">Desk allocated for tomorrow: ${tomorrowAlloc.deskId}</div>
+          <div style="font-size:12px;color:#16a34a">${(tomorrowAlloc.reasonFactors || []).join(' · ')} · Confirm by 8am to lock it</div>
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="confirmAllocation('${tomorrowAlloc.id}')">Confirm</button>
+        <button class="btn btn-sm btn-secondary" onclick="navigate('my-allocation')">View</button>
+      </div>
+    </div>` : '';
+
+  const noShowCard = noShowWarn.show ? `
+    <div class="card one-col" style="margin-bottom:16px;border:1.5px solid ${noShowWarn.level === 'penalty' ? 'var(--danger)' : '#FDE68A'};background:${noShowWarn.level === 'penalty' ? '#FEF2F2' : '#FFFBEB'}">
+      <div class="card-body" style="padding:12px 18px;font-size:13px;color:${noShowWarn.level === 'penalty' ? 'var(--danger)' : '#92400E'}">
+        &#9888;&#65039; ${noShowWarn.msg}
+      </div>
+    </div>` : '';
+  // ── End new cards ───────────────────────────────────────────────────────
+
   const anchorAlertCard = unbookedAnchorDays.length === 0 ? '' : (() => {
     const rows = unbookedAnchorDays.map(d => {
       const label = parseDate(d).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
@@ -955,6 +1005,9 @@ async function renderDashboard() {
     ${checkinBanner}
     ${walkInBanner}
     ${anchorAlertCard}
+    ${declCard}
+    ${allocCard}
+    ${noShowCard}
 
     <div class="stats-row">
       <div class="stat-card">
@@ -2087,11 +2140,45 @@ async function renderTeamBookings() {
     return `<div class="tb-cal-row">${cells}</div>`;
   }).join('');
 
+  const activePBs = loadPowerBlocks().filter(pb =>
+    pb.managerId === currentUser.id && pb.status !== 'cancelled' && pb.date >= today()
+  ).sort((a, b) => a.date.localeCompare(b.date));
+
+  const powerBlocksSection = `
+    <div class="card one-col" style="margin-bottom:20px">
+      <div class="card-header">
+        <span class="card-title">Team Days (Power Blocks)</span>
+        <button class="btn btn-sm btn-primary" onclick="showCreateTeamDayModal('${addDays(today(), 7)}')">+ Create Team Day</button>
+      </div>
+      <div class="card-body" style="padding:${activePBs.length === 0 ? '16px 18px' : '0'}">
+        ${activePBs.length === 0 ? `
+          <p style="font-size:13px;color:var(--text-secondary);margin:0">No team days scheduled. Create one to reserve a zone for your whole team.</p>
+        ` : `
+          <table class="admin-table">
+            <thead><tr><th>Title</th><th>Date</th><th>Zone</th><th>Members</th><th>Action</th></tr></thead>
+            <tbody>
+              ${activePBs.map(pb => `
+                <tr>
+                  <td><strong>${pb.title}</strong></td>
+                  <td>${parseDate(pb.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</td>
+                  <td><span class="pill pill-blue" style="font-size:11px">${pb.zone}</span></td>
+                  <td>${pb.memberIds.length} member${pb.memberIds.length !== 1 ? 's' : ''}</td>
+                  <td><button class="btn btn-sm btn-secondary" style="color:var(--danger);border-color:var(--danger)" onclick="cancelPowerBlock('${pb.id}')">Cancel</button></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `}
+      </div>
+    </div>
+  `;
+
   container.innerHTML = `
     <div class="page-header">
       <h1>Team Bookings</h1>
       <p>Request desks for your team on any day up to 4 weeks ahead — each request is sent for Workplace &amp; Facilities approval</p>
     </div>
+    ${powerBlocksSection}
     <div class="tb-legend">
       <span class="tb-legend-item"><span class="tb-legend-dot tb-legend-dot-empty"></span>Available — click to request</span>
       <span class="tb-legend-item"><span class="tb-legend-dot tb-legend-dot-meeting"></span>Pending approval</span>
@@ -3176,6 +3263,1102 @@ async function init() {
     el.addEventListener('click', e => { e.preventDefault(); navigate(el.dataset.view); });
   });
   ssoLogin();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// FEATURE 1: Attendance Declaration
+// ══════════════════════════════════════════════════════════════════════════
+
+const DECLARATIONS_KEY = 'mdb_declarations';
+function loadDeclarations() { try { return JSON.parse(localStorage.getItem(DECLARATIONS_KEY)||'[]'); } catch { return []; } }
+function saveDeclarations(d) { localStorage.setItem(DECLARATIONS_KEY, JSON.stringify(d)); }
+
+function getDeclaration(userId, date) {
+  return loadDeclarations().find(d => d.userId === userId && d.date === date) || null;
+}
+
+function setDeclaration(userId, date, status, source) {
+  source = source || 'manual';
+  const all = loadDeclarations().filter(d => !(d.userId === userId && d.date === date));
+  if (status !== 'none') {
+    all.push({ id: generateId(), userId, date, status, source, createdAt: new Date().toISOString() });
+  }
+  saveDeclarations(all);
+}
+
+function renderDeclareView() {
+  const container = document.getElementById('view-declare');
+  if (!container) return;
+
+  const isMonday = parseDate(today()).getDay() === 1;
+
+  // Show next 14 weekdays
+  const dates = [];
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  while (dates.length < 14) {
+    const dow = d.getDay();
+    if (dow !== 0 && dow !== 6) dates.push(toDateStr(d));
+    d.setDate(d.getDate() + 1);
+  }
+
+  const calConfig = loadCalendarConfig();
+
+  const nudge = isMonday ? `
+    <div class="checkin-banner checkin-banner-pending" style="margin-bottom:20px">
+      <span>&#128075; Monday nudge &mdash; declare your office days for this week so the system can allocate your desk in advance.</span>
+    </div>` : '';
+
+  const allDecls = loadDeclarations().filter(d => d.userId === currentUser.id);
+  const mon = weekMonday(today());
+  const thisWeekYes = allDecls.filter(d =>
+    d.date >= mon && d.date <= addDays(mon, 4) && d.status === 'yes'
+  ).length;
+
+  const noShowWarn = getNoShowWarning(currentUser.id);
+  const noShowBanner = noShowWarn.show ? `
+    <div class="card one-col" style="margin-bottom:16px;border:1.5px solid ${noShowWarn.level === 'penalty' ? 'var(--danger)' : '#FDE68A'};background:${noShowWarn.level === 'penalty' ? '#FEF2F2' : '#FFFBEB'}">
+      <div class="card-body" style="padding:12px 18px;font-size:13px;color:${noShowWarn.level === 'penalty' ? 'var(--danger)' : '#92400E'}">
+        &#9888;&#65039; ${noShowWarn.msg}
+      </div>
+    </div>` : '';
+
+  container.innerHTML = `
+    <div class="page-header">
+      <h1>Attendance Declaration</h1>
+      <p>Tell us when you're planning to come in — no desk booking required</p>
+    </div>
+    ${nudge}
+    ${noShowBanner}
+    <div class="two-col" style="gap:16px;align-items:start">
+      <div>
+        <div class="card one-col" style="margin-bottom:16px">
+          <div class="card-header">
+            <span class="card-title">Declare your office days</span>
+            <span class="pill pill-blue" style="font-size:11px">${thisWeekYes} day${thisWeekYes !== 1 ? 's' : ''} this week</span>
+          </div>
+          <div class="card-body" style="padding:12px 16px">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
+              The system uses your declarations &mdash; not desk grabs &mdash; to allocate desks the night before. No rushing on Friday.
+            </p>
+            <div style="display:flex;flex-direction:column;gap:8px">
+              ${dates.map(dateStr => {
+                const decl = getDeclaration(currentUser.id, dateStr);
+                const isPast = dateStr < today();
+                const dObj = parseDate(dateStr);
+                const hasBooking = loadBookings().some(b => b.userId === currentUser.id && b.date === dateStr);
+                const alloc = getAllocationForUser(currentUser.id, dateStr);
+                const weekLabel = dObj.toLocaleDateString('en-GB', {weekday:'long'});
+                const dateLabel = dObj.toLocaleDateString('en-GB', {day:'numeric', month:'short'});
+                const isWeekSep = dObj.getDay() === 1;
+
+                return `
+                  ${isWeekSep ? `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);padding:6px 0 2px">
+                    ${dObj.toLocaleDateString('en-GB', {day:'numeric', month:'long'})} week
+                  </div>` : ''}
+                  <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;background:${decl?.status === 'yes' ? '#E6F2EE' : decl?.status === 'no' ? '#FEE2E2' : decl?.status === 'maybe' ? '#FEF3C7' : 'var(--bg)'};border:1px solid ${decl?.status === 'yes' ? '#A7D7C5' : decl?.status === 'no' ? '#FECACA' : decl?.status === 'maybe' ? '#FDE68A' : 'var(--border)'}">
+                    <div style="min-width:110px">
+                      <div style="font-weight:600;font-size:13px">${weekLabel}</div>
+                      <div style="font-size:12px;color:var(--text-muted)">${dateLabel}</div>
+                    </div>
+                    ${hasBooking ? '<span class="pill pill-blue" style="font-size:10px;margin-right:4px">Desk booked</span>' : ''}
+                    ${alloc ? '<span class="pill" style="font-size:10px;margin-right:4px;background:#E6F2EE;color:#006A4D;border:1px solid #A7D7C5">Allocated: ' + alloc.deskId + '</span>' : ''}
+                    ${decl?.source === 'calendar' ? '<span class="pill pill-blue" style="font-size:10px;margin-right:4px">From calendar</span>' : ''}
+                    <div style="display:flex;gap:6px;margin-left:auto">
+                      ${isPast ? '<span style="font-size:12px;color:var(--text-muted)">Past</span>' : `
+                        <button class="btn btn-sm ${decl?.status==='yes' ? 'btn-primary' : 'btn-secondary'}"
+                          onclick="declareDay('${dateStr}','yes')" style="min-width:44px">Yes</button>
+                        <button class="btn btn-sm ${decl?.status==='maybe' ? 'btn-primary' : 'btn-secondary'}"
+                          onclick="declareDay('${dateStr}','maybe')" style="min-width:52px">Maybe</button>
+                        <button class="btn btn-sm ${decl?.status==='no' ? '' : 'btn-secondary'}"
+                          style="${decl?.status==='no' ? 'background:var(--danger);color:white;border-color:var(--danger)' : ''};min-width:44px"
+                          onclick="declareDay('${dateStr}','no')">No</button>
+                      `}
+                    </div>
+                  </div>`;
+              }).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header"><span class="card-title">Calendar Integration</span>
+            ${calConfig.connected ? '<span class="pill pill-blue" style="font-size:11px">Connected</span>' : ''}
+          </div>
+          <div class="card-body" style="padding:16px 18px">
+            <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">
+              Connect your calendar and Perch will automatically detect office attendance from:<br>
+              <ul style="font-size:12.5px;margin:8px 0 0 0;padding-left:16px;color:var(--text-secondary);line-height:2">
+                <li>All-day events with "office" or "in office" in the title or location</li>
+                <li>3 or more in-person meetings on the same day</li>
+              </ul>
+            </p>
+            ${calConfig.connected ? `
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+                <span style="font-size:18px">${calConfig.provider === 'microsoft' ? '&#x1F535;' : '&#x1F534;'}</span>
+                <div>
+                  <div style="font-weight:600;font-size:13px">${calConfig.provider === 'microsoft' ? 'Microsoft 365' : 'Google Calendar'} connected</div>
+                  <div style="font-size:12px;color:var(--text-muted)">${calConfig.email || 'Calendar synced'}</div>
+                </div>
+                <button class="btn btn-sm btn-secondary" onclick="disconnectCalendar()" style="margin-left:auto">Disconnect</button>
+              </div>
+              <button class="btn btn-primary btn-full" onclick="syncCalendarDeclarations()">Sync now</button>
+            ` : `
+              <div style="display:flex;flex-direction:column;gap:8px">
+                <button class="btn btn-primary btn-full" onclick="showCalendarConnectModal()">
+                  Connect calendar
+                </button>
+                <button class="btn btn-secondary btn-full" onclick="simulateCalendarSync()">Demo: simulate calendar sync</button>
+              </div>
+            `}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">How it works</span></div>
+          <div class="card-body" style="padding:14px 18px">
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.8">
+              <div style="margin-bottom:8px"><strong style="color:var(--text)">Yes</strong> &rarr; High priority in allocation. You'll get your preferred desk.</div>
+              <div style="margin-bottom:8px"><strong style="color:var(--text)">Maybe</strong> &rarr; Deprioritised. You may get a desk but Yes declarations go first.</div>
+              <div style="margin-bottom:8px"><strong style="color:var(--text)">No</strong> &rarr; Keeps your desk free for others. No allocation made.</div>
+              <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--text-muted)">
+                Allocations are sent the evening before. You'll be notified by 7pm.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function declareDay(date, status) {
+  const existing = getDeclaration(currentUser.id, date);
+  if (existing?.status === status) {
+    setDeclaration(currentUser.id, date, 'none');
+    toast('Declaration cleared', 'info');
+  } else {
+    setDeclaration(currentUser.id, date, status);
+    const labels = { yes: 'office day', no: 'working from home', maybe: 'maybe in office' };
+    toast(parseDate(date).toLocaleDateString('en-GB',{weekday:'long'}) + ' — ' + labels[status], 'success');
+  }
+  renderDeclareView();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// FEATURE 2: Smart Allocation Engine
+// ══════════════════════════════════════════════════════════════════════════
+
+const ALLOCATIONS_KEY = 'mdb_allocations';
+function loadAllocations() { try { return JSON.parse(localStorage.getItem(ALLOCATIONS_KEY)||'[]'); } catch { return []; } }
+function saveAllocations(a) { localStorage.setItem(ALLOCATIONS_KEY, JSON.stringify(a)); }
+
+function getAllocationForUser(userId, date) {
+  return loadAllocations().find(a => a.userId === userId && a.date === date && a.status !== 'released') || null;
+}
+
+const ALLOC_SETTINGS_KEY = 'mdb_alloc_settings';
+function loadAllocSettings() { try { return JSON.parse(localStorage.getItem(ALLOC_SETTINGS_KEY)||'null') || { walkInPoolPct: 20 }; } catch { return { walkInPoolPct: 20 }; } }
+function saveAllocSettings(s) { localStorage.setItem(ALLOC_SETTINGS_KEY, JSON.stringify(s)); }
+
+const ALLOC_LOGS_KEY = 'mdb_alloc_logs';
+function loadAllocLogs() { try { return JSON.parse(localStorage.getItem(ALLOC_LOGS_KEY)||'[]'); } catch { return []; } }
+function saveAllocLogs(l) { localStorage.setItem(ALLOC_LOGS_KEY, JSON.stringify(l)); }
+
+function runAllocationEngine(date) {
+  const bookings = loadBookings();
+  const existingAllocs = loadAllocations().filter(a => a.date !== date);
+
+  const decls = loadDeclarations().filter(d => d.date === date && (d.status === 'yes' || d.status === 'maybe'));
+  decls.sort((a, b) => {
+    if (a.status !== b.status) return a.status === 'yes' ? -1 : 1;
+    return a.createdAt.localeCompare(b.createdAt);
+  });
+
+  const powerBlocks = getPowerBlocksForDate(date);
+
+  const assignedDesks = new Set();
+  bookings.filter(b => b.date === date).forEach(b => assignedDesks.add(b.deskId));
+  powerBlocks.forEach(pb => (pb.deskIds || []).forEach(id => assignedDesks.add(id)));
+
+  const settings = loadAllocSettings();
+  const walkInPct = settings.walkInPoolPct != null ? settings.walkInPoolPct : 20;
+  const adminS = JSON.parse(localStorage.getItem(ADMIN_SETTINGS_KEY) || 'null');
+  const disabledDesks = adminS?.disabledDesks || [];
+  const enabledDesks = DESKS.filter(d => !disabledDesks.includes(d.id));
+  const walkInCount = Math.max(1, Math.round(enabledDesks.length * walkInPct / 100));
+  const walkInPool = new Set(enabledDesks.slice(-walkInCount).map(d => d.id));
+
+  const allocations = [];
+  const runLog = { date, runAt: new Date().toISOString(), allocations: [], walkInPool: [...walkInPool] };
+
+  for (const decl of decls) {
+    const user = allUsers.find(u => u.id === decl.userId);
+    if (!user) continue;
+    if (bookings.some(b => b.userId === user.id && b.date === date)) continue;
+    if (allocations.some(a => a.userId === user.id)) continue;
+
+    const nsp = getUserNoshowPriority(user.id);
+
+    const available = enabledDesks.filter(d =>
+      !assignedDesks.has(d.id) &&
+      !walkInPool.has(d.id) &&
+      !allocations.some(a => a.deskId === d.id)
+    );
+
+    if (available.length === 0) break;
+
+    const pat = (typeof HISTORIC_PATTERNS !== 'undefined' ? HISTORIC_PATTERNS : [])
+      .find(p => p.userId === user.id)?.patterns.find(p => p.day === dayKey(date));
+    let chosen = null;
+    let reasonFactors = [];
+
+    if (pat && available.find(d => d.id === pat.deskId)) {
+      chosen = available.find(d => d.id === pat.deskId);
+      reasonFactors = ['Your usual desk (' + Math.round(pat.consistency * 100) + '% consistency)'];
+    } else {
+      const teamAllocDesks = allocations.filter(a => {
+        const u = allUsers.find(u => u.id === a.userId);
+        return u?.team === user.team;
+      }).map(a => a.deskId);
+
+      const extPrefs = loadUserExtPrefs(user.id);
+      const favDesks = extPrefs.favoriteDeskIds || user.favoriteDeskIds || [];
+
+      const scored = available.map(d => {
+        let score = scoreDesk(d, user) * nsp;
+        const teamNbs = [...new Set(teamAllocDesks.map(id => DESKS.find(dk => dk.id === id)?.neighbourhood).filter(Boolean))];
+        if (teamNbs.includes(d.neighbourhood)) score += 5;
+        const userPattern = (typeof HISTORIC_PATTERNS !== 'undefined' ? HISTORIC_PATTERNS : []).find(p => p.userId === user.id);
+        if (userPattern) {
+          const usualNb = DESKS.find(dk => dk.id === userPattern.patterns[0]?.deskId)?.neighbourhood;
+          if (usualNb && d.neighbourhood === usualNb) score += 2;
+        }
+        if (favDesks.includes(d.id)) score += 4;
+        if (user.flexMode || extPrefs.flexMode) score -= 3;
+        return { ...d, score };
+      }).sort((a, b) => b.score - a.score);
+
+      chosen = scored[0];
+      if (chosen) {
+        const reasons = [];
+        if (scoreDesk(chosen, user) >= 3) reasons.push('Matches your desk preferences');
+        const teamNbs = [...new Set(teamAllocDesks.map(id => DESKS.find(dk => dk.id === id)?.neighbourhood).filter(Boolean))];
+        if (teamNbs.includes(chosen.neighbourhood)) reasons.push('Near your team');
+        if (favDesks.includes(chosen.id)) reasons.push('One of your favourites');
+        reasonFactors = reasons.length ? reasons : ['Best available match'];
+      }
+    }
+
+    if (!chosen) continue;
+
+    const alloc = {
+      id: generateId(),
+      userId: user.id,
+      deskId: chosen.id,
+      date,
+      type: decl.status === 'yes' ? 'soft' : 'soft-maybe',
+      status: 'pending',
+      reasonFactors,
+      declarationStatus: decl.status,
+      allocatedAt: new Date().toISOString(),
+    };
+    allocations.push(alloc);
+    assignedDesks.add(chosen.id);
+  }
+
+  saveAllocations([...existingAllocs, ...allocations]);
+
+  const logs = loadAllocLogs();
+  logs.unshift({ ...runLog, allocations: allocations.map(a => ({userId: a.userId, deskId: a.deskId, reason: a.reasonFactors, type: a.type})) });
+  saveAllocLogs(logs.slice(0, 30));
+
+  return { count: allocations.length, walkInCount, allocations };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// FEATURE 3: My Allocation View
+// ══════════════════════════════════════════════════════════════════════════
+
+function renderMyAllocationView() {
+  const container = document.getElementById('view-my-allocation');
+  if (!container) return;
+
+  autoReleaseAllocations();
+
+  const myAllocs = loadAllocations().filter(a =>
+    a.userId === currentUser.id &&
+    a.date >= today() &&
+    a.status !== 'released'
+  ).sort((a, b) => a.date.localeCompare(b.date));
+
+  const noShowWarn = getNoShowWarning(currentUser.id);
+  const noShowBanner = noShowWarn.show ? `
+    <div class="card one-col" style="margin-bottom:16px;border:1.5px solid ${noShowWarn.level === 'penalty' ? 'var(--danger)' : '#FDE68A'};background:${noShowWarn.level === 'penalty' ? '#FEF2F2' : '#FFFBEB'}">
+      <div class="card-body" style="padding:12px 18px;font-size:13px;color:${noShowWarn.level === 'penalty' ? 'var(--danger)' : '#92400E'}">
+        &#9888;&#65039; ${noShowWarn.msg}
+      </div>
+    </div>` : '';
+
+  container.innerHTML = `
+    <div class="page-header">
+      <h1>My Allocation</h1>
+      <p>Desks allocated to you by the smart engine</p>
+    </div>
+    ${noShowBanner}
+    ${myAllocs.length === 0 ? `
+      <div class="empty-state">
+        <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="3" y="4" width="18" height="18" rx="2"/>
+          <path d="M9 11l3 3L22 4"/>
+        </svg>
+        <h3>No allocations yet</h3>
+        <p>Declare your office days and the engine will allocate a desk for you the evening before.</p>
+        <button class="btn btn-primary" onclick="navigate('declare')">Declare office days</button>
+      </div>
+    ` : `
+      <div class="booking-list">
+        ${myAllocs.map(alloc => renderAllocationItem(alloc)).join('')}
+      </div>
+    `}
+
+    <div class="card one-col" style="margin-top:24px">
+      <div class="card-header"><span class="card-title">Walk-in today</span></div>
+      <div class="card-body" style="padding:16px 18px">
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">
+          No declaration? Just walk in. Tap below when you arrive and a desk near your team will be assigned in seconds.
+        </p>
+        <button class="btn btn-primary" onclick="processWalkIn()">I've arrived &mdash; assign me a desk</button>
+      </div>
+    </div>
+  `;
+}
+
+function renderAllocationItem(alloc) {
+  const d = parseDate(alloc.date);
+  const month = d.toLocaleDateString('en-GB', { month: 'short' }).toUpperCase();
+  const day = d.getDate();
+  const weekday = d.toLocaleDateString('en-GB', { weekday: 'long' });
+  const desk = DESKS.find(dk => dk.id === alloc.deskId);
+  const floor = desk?.floor === 'ground' ? 'Ground Floor' : 'First Floor';
+
+  const typeLabels = { 'soft': 'Auto-allocated', 'soft-maybe': 'Tentative', 'confirmed': 'Confirmed', 'power-block': 'Team Day', 'walk-in': 'Walk-in' };
+  const typePillClass = alloc.status === 'confirmed' ? 'pill-blue' : alloc.type === 'walk-in' ? 'pill-green' : 'pill-amber';
+
+  return `
+    <div class="booking-item ${alloc.status === 'confirmed' ? '' : 'booking-item-hold'}">
+      <div class="booking-info">
+        <div class="booking-date-block">
+          <div class="bdate-month">${month}</div>
+          <div class="bdate-day">${day}</div>
+        </div>
+        <div class="booking-details">
+          <div class="booking-desk">
+            ${alloc.deskId}
+            <span class="pill ${typePillClass}" style="margin-left:6px;font-size:11px">${typeLabels[alloc.type] || alloc.type}</span>
+            ${alloc.status === 'confirmed' ? '<span class="checkin-status checkin-done" style="margin-left:6px">Confirmed</span>' : ''}
+          </div>
+          <div class="booking-meta">${weekday} &middot; ${floor} &middot; ${desk?.neighbourhood || '&ndash;'}</div>
+          <div style="margin-top:5px;font-size:11.5px;color:var(--text-muted)">
+            ${(alloc.reasonFactors || []).join(' &middot; ')}
+          </div>
+          ${alloc.status !== 'confirmed' ? `<div style="margin-top:4px;font-size:11.5px;color:var(--text-muted)">Confirm by 8am to lock your desk. Unconfirmed allocations are released to the walk-in pool.</div>` : ''}
+        </div>
+      </div>
+      <div class="booking-actions">
+        ${alloc.status !== 'confirmed' ? `<button class="btn btn-sm btn-primary" onclick="confirmAllocation('${alloc.id}')">Confirm</button>` : ''}
+        <button class="btn btn-sm btn-secondary" style="color:var(--danger);border-color:var(--danger)" onclick="releaseAllocation('${alloc.id}')">Release</button>
+      </div>
+    </div>
+  `;
+}
+
+function confirmAllocation(allocId) {
+  const allocs = loadAllocations();
+  const alloc = allocs.find(a => a.id === allocId);
+  if (!alloc) return;
+  try {
+    createBooking({ userId: alloc.userId, deskId: alloc.deskId, date: alloc.date, slot: 'full' });
+    alloc.status = 'confirmed';
+    alloc.confirmedAt = new Date().toISOString();
+    saveAllocations(allocs);
+    toast(alloc.deskId + ' confirmed for ' + displayShortDate(alloc.date), 'success');
+    renderMyAllocationView();
+  } catch (e) {
+    toast(e.message || 'Could not confirm allocation', 'error');
+  }
+}
+
+function releaseAllocation(allocId) {
+  const allocs = loadAllocations();
+  const alloc = allocs.find(a => a.id === allocId);
+  if (!alloc) return;
+  alloc.status = 'released';
+  saveAllocations(allocs);
+  toast('Allocation released — desk returned to pool', 'info');
+  renderMyAllocationView();
+}
+
+function autoReleaseAllocations() {
+  const now = new Date();
+  if (now.getHours() < 8) return;
+  const allocs = loadAllocations();
+  let changed = false;
+  for (const a of allocs) {
+    if (a.date === today() && a.status === 'pending') {
+      a.status = 'released';
+      changed = true;
+    }
+  }
+  if (changed) saveAllocations(allocs);
+}
+
+function processWalkIn(userId) {
+  const uid = userId || currentUser?.id;
+  if (!uid) return;
+  const user = allUsers.find(u => u.id === uid) || currentUser;
+  const date = today();
+
+  if (loadBookings().some(b => b.userId === uid && b.date === date)) {
+    toast('You already have a desk today', 'info');
+    return;
+  }
+
+  const settings = loadAllocSettings();
+  const walkInPct = settings.walkInPoolPct != null ? settings.walkInPoolPct : 20;
+  const enabledDesks = DESKS;
+  const walkInCount = Math.max(1, Math.round(enabledDesks.length * walkInPct / 100));
+  const walkInPool = enabledDesks.slice(-walkInCount);
+
+  const bookedIds = new Set(loadBookings().filter(b => b.date === date).map(b => b.deskId));
+  const allocIds = new Set(loadAllocations().filter(a => a.date === date && a.status !== 'released').map(a => a.deskId));
+
+  const available = walkInPool.filter(d => !bookedIds.has(d.id) && !allocIds.has(d.id));
+  if (available.length === 0) {
+    toast('No walk-in desks available right now', 'error');
+    return;
+  }
+
+  const todayBookings = getBookings({ date });
+  const teamNbs = [...new Set(
+    todayBookings.filter(b => b.user?.team === user.team).map(b => DESKS.find(d => d.id === b.deskId)?.neighbourhood).filter(Boolean)
+  )];
+
+  const scored = available.map(d => ({
+    ...d,
+    score: scoreDesk(d, user) + (teamNbs.includes(d.neighbourhood) ? 8 : 0)
+  })).sort((a, b) => b.score - a.score);
+
+  const desk = scored[0];
+
+  showModal(`
+    <div style="text-align:center;padding:8px 0 4px">
+      <div style="font-size:36px;margin-bottom:10px">&#x1F6B6;</div>
+      <h3 style="font-size:17px;font-weight:700;margin-bottom:8px">Welcome in!</h3>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px">Here's your desk for today:</p>
+    </div>
+    <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px;text-align:center">
+      <div style="font-size:28px;font-weight:800;color:var(--primary)">${desk.id}</div>
+      <div class="desk-neighbourhood ${nbClass(desk.neighbourhood)}" style="display:inline-block;margin:6px 0">${desk.neighbourhood}</div>
+      <div style="font-size:12px;color:var(--text-secondary)">${desk.floor === 'ground' ? 'Ground' : 'First'} Floor</div>
+      ${teamNbs.includes(desk.neighbourhood) ? '<div style="font-size:12px;color:var(--primary);font-weight:600;margin-top:6px">Near your team members</div>' : ''}
+    </div>
+    <button class="btn btn-primary btn-full" onclick="confirmWalkIn('${desk.id}','${date}')">Head to ${desk.id}</button>
+    <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="hideModal()">Cancel</button>
+  `);
+}
+
+function confirmWalkIn(deskId, date) {
+  hideModal();
+  try {
+    createBooking({ userId: currentUser.id, deskId, date, slot: 'full' });
+    const alloc = {
+      id: generateId(),
+      userId: currentUser.id,
+      deskId,
+      date,
+      type: 'walk-in',
+      status: 'confirmed',
+      reasonFactors: ['Walk-in assignment'],
+      allocatedAt: new Date().toISOString(),
+      confirmedAt: new Date().toISOString(),
+    };
+    saveAllocations([...loadAllocations(), alloc]);
+    toast('Welcome! ' + deskId + ' is yours for today', 'success');
+    renderDashboard();
+  } catch (e) {
+    toast(e.message || 'Could not assign desk', 'error');
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// FEATURE 4: No-Show Priority Tracking
+// ══════════════════════════════════════════════════════════════════════════
+
+const NOSHOW_RECORD_KEY = 'mdb_noshow_records';
+function loadNoshowRecords() { try { return JSON.parse(localStorage.getItem(NOSHOW_RECORD_KEY)||'{}'); } catch { return {}; } }
+function saveNoshowRecords(r) { localStorage.setItem(NOSHOW_RECORD_KEY, JSON.stringify(r)); }
+
+function getUserNoshowPriority(userId) {
+  const records = loadNoshowRecords();
+  const monthKey = new Date().toISOString().slice(0, 7);
+  const userRecord = records[userId] || {};
+  if (!userRecord.month || userRecord.month !== monthKey) return 1.0;
+  const count = userRecord.count || 0;
+  if (count >= 3) return 0.7;
+  if (count >= 2) return 0.85;
+  return 1.0;
+}
+
+function recordNoShow(userId) {
+  const records = loadNoshowRecords();
+  const monthKey = new Date().toISOString().slice(0, 7);
+  if (!records[userId] || records[userId].month !== monthKey) {
+    records[userId] = { month: monthKey, count: 0 };
+  }
+  records[userId].count++;
+  saveNoshowRecords(records);
+}
+
+function getNoShowWarning(userId) {
+  const records = loadNoshowRecords();
+  const monthKey = new Date().toISOString().slice(0, 7);
+  const count = records[userId]?.month === monthKey ? records[userId].count : 0;
+  if (count >= 3) return { show: true, count, level: 'penalty', msg: 'You have ' + count + ' no-shows this month. Your allocation priority has been reduced until next month.' };
+  if (count >= 2) return { show: true, count, level: 'warning', msg: 'You have ' + count + ' no-shows this month. One more and your allocation priority will be reduced.' };
+  return { show: false };
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// FEATURE 5: Power Blocks / Team Day
+// ══════════════════════════════════════════════════════════════════════════
+
+const POWER_BLOCKS_KEY = 'mdb_power_blocks';
+function loadPowerBlocks() { try { return JSON.parse(localStorage.getItem(POWER_BLOCKS_KEY)||'[]'); } catch { return []; } }
+function savePowerBlocks(pb) { localStorage.setItem(POWER_BLOCKS_KEY, JSON.stringify(pb)); }
+function getPowerBlocksForDate(date) { return loadPowerBlocks().filter(pb => pb.date === date && pb.status !== 'cancelled'); }
+
+function cancelPowerBlock(pbId) {
+  const pbs = loadPowerBlocks();
+  const pb = pbs.find(p => p.id === pbId);
+  if (!pb) return;
+  pb.status = 'cancelled';
+  savePowerBlocks(pbs);
+  toast('Team Day cancelled', 'info');
+  renderTeamBookings();
+}
+
+function showCreateTeamDayModal(date) {
+  const reports = (currentUser.directReports || []).map(id => allUsers.find(u => u.id === id)).filter(Boolean);
+  const zones = ['Window Bank', 'Quiet Zone', 'Core Desk Area', 'Collaboration Zone'];
+
+  showModal(`
+    <div class="modal-title">Create Team Day</div>
+    <div style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">Reserve a zone for your team &mdash; confirmed weeks in advance</div>
+
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);display:block;margin-bottom:5px">Title</label>
+      <input id="td-title" type="text" class="field-input" placeholder="e.g. Quarterly Planning" value="">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px">
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);display:block;margin-bottom:5px">Date</label>
+        <input id="td-date" type="date" class="field-input" value="${date || addDays(today(), 7)}">
+      </div>
+      <div>
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);display:block;margin-bottom:5px">Zone</label>
+        <select id="td-zone" class="field-input" style="background:var(--bg)">
+          ${zones.map(z => '<option value="' + z + '">' + z + '</option>').join('')}
+        </select>
+      </div>
+    </div>
+
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:8px">Team members &amp; desk pinning</div>
+    <div style="max-height:240px;overflow-y:auto;margin-bottom:14px;display:flex;flex-direction:column;gap:6px">
+      ${reports.length === 0 ? '<p style="font-size:13px;color:var(--text-muted)">No direct reports configured.</p>' : reports.map(u => `
+        <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:6px">
+          <input type="checkbox" class="td-member-cb" value="${u.id}" checked style="flex-shrink:0">
+          <div class="user-avatar" style="background:${avatarColor(u.fullName)};width:26px;height:26px;font-size:11px;flex-shrink:0">${initials(u.fullName)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:600">${u.fullName}</div>
+          </div>
+          <select class="td-pin-desk" data-uid="${u.id}" style="font-size:12px;border:1px solid var(--border);border-radius:6px;padding:4px 8px;background:var(--bg);color:var(--text)">
+            <option value="">Auto</option>
+            ${DESKS.map(d => '<option value="' + d.id + '">' + d.id + ' (' + d.neighbourhood + ')</option>').join('')}
+          </select>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="hideModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createTeamDay()">Reserve zone</button>
+    </div>
+  `);
+}
+
+function createTeamDay() {
+  const title = document.getElementById('td-title').value.trim();
+  const date = document.getElementById('td-date').value;
+  const zone = document.getElementById('td-zone').value;
+  const members = [...document.querySelectorAll('.td-member-cb:checked')].map(cb => cb.value);
+
+  if (!title) { toast('Enter a title', 'error'); return; }
+  if (!date || date < today()) { toast('Pick a future date', 'error'); return; }
+  if (members.length === 0) { toast('Select at least one member', 'error'); return; }
+
+  const pins = {};
+  document.querySelectorAll('.td-pin-desk').forEach(sel => {
+    if (sel.value) pins[sel.dataset.uid] = sel.value;
+  });
+
+  const zoneDesks = DESKS.filter(d => d.neighbourhood === zone);
+  if (zoneDesks.length < members.length) {
+    toast('Only ' + zoneDesks.length + ' desks in ' + zone + ' — reduce team size', 'error');
+    return;
+  }
+
+  const bookedDeskIds = new Set(loadBookings().filter(b => b.date === date).map(b => b.deskId));
+  const memberAllocations = [];
+
+  for (const userId of members) {
+    const pinnedDesk = pins[userId];
+    let desk = null;
+    if (pinnedDesk) {
+      desk = zoneDesks.find(d => d.id === pinnedDesk && !bookedDeskIds.has(d.id));
+    }
+    if (!desk) {
+      desk = zoneDesks.find(d => !bookedDeskIds.has(d.id) && !memberAllocations.find(ma => ma.deskId === d.id));
+    }
+    if (!desk) { toast('Not enough free desks in that zone for this date', 'error'); return; }
+    memberAllocations.push({ userId, deskId: desk.id });
+    bookedDeskIds.add(desk.id);
+  }
+
+  const pb = {
+    id: generateId(),
+    managerId: currentUser.id,
+    title,
+    date,
+    zone,
+    memberIds: members,
+    deskIds: memberAllocations.map(ma => ma.deskId),
+    memberAllocations,
+    status: 'active',
+    createdAt: new Date().toISOString(),
+  };
+  savePowerBlocks([...loadPowerBlocks(), pb]);
+
+  memberAllocations.forEach(({ userId, deskId }) => {
+    try { createBooking({ userId, deskId, date, slot: 'full' }); } catch {}
+  });
+
+  const allocs = loadAllocations();
+  memberAllocations.forEach(({ userId, deskId }) => {
+    allocs.push({
+      id: generateId(),
+      userId,
+      deskId,
+      date,
+      type: 'power-block',
+      status: 'confirmed',
+      reasonFactors: ['Team Day: ' + title, 'Manager reserved zone: ' + zone],
+      allocatedAt: new Date().toISOString(),
+    });
+  });
+  saveAllocations(allocs);
+
+  hideModal();
+  toast('Team Day created — ' + memberAllocations.length + ' desks reserved in ' + zone, 'success');
+  renderTeamBookings();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// FEATURE 6: Extended Preference Profile
+// ══════════════════════════════════════════════════════════════════════════
+
+function loadUserExtPrefs(userId) {
+  try { return JSON.parse(localStorage.getItem('mdb_user_ext_prefs_' + userId) || 'null') || {}; } catch { return {}; }
+}
+function saveUserExtPrefs(userId, p) { localStorage.setItem('mdb_user_ext_prefs_' + userId, JSON.stringify(p)); }
+
+function renderExtPrefsSection() {
+  const prefs = loadUserExtPrefs(currentUser.id);
+  const favDesks = prefs.favoriteDeskIds || [];
+  const crossTeams = prefs.crossTeamProximity || [];
+  const flexMode = prefs.flexMode || false;
+  const allTeams = [...new Set(allUsers.map(u => u.team))].sort();
+
+  return `
+    <div class="card one-col" style="margin-top:16px">
+      <div class="card-header">
+        <span class="card-title">Desk Preferences</span>
+        <span class="pill pill-blue" style="font-size:11px">Allocation engine</span>
+      </div>
+      <div class="card-body" style="padding:16px 20px">
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">These preferences influence your smart allocation — the engine tries to honour them when assigning your desk.</p>
+
+        <div style="margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Favourite Desks (up to 3)</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${[0,1,2].map(i => `
+              <select class="fav-desk-sel" data-idx="${i}" onchange="saveExtPrefFavDesk()"
+                style="border:1px solid var(--border);border-radius:6px;padding:6px 10px;font-size:13px;background:var(--bg);color:var(--text)">
+                <option value="">None</option>
+                ${DESKS.map(d => '<option value="' + d.id + '"' + (favDesks[i] === d.id ? ' selected' : '') + '>' + d.id + ' &mdash; ' + d.neighbourhood + '</option>').join('')}
+              </select>
+            `).join('')}
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px">Sit Near Teams</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${allTeams.filter(t => t !== currentUser.team).map(t => `
+              <button class="env-pref-btn${crossTeams.includes(t) ? ' active' : ''}" onclick="toggleCrossTeam('${t}')">${t}</button>
+            `).join('')}
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:13px">Flex Mode</div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">I don't mind where I sit &mdash; I'll fill in gaps</div>
+          </div>
+          <button class="btn btn-sm ${flexMode ? 'btn-primary' : 'btn-secondary'}" onclick="toggleFlexMode()">${flexMode ? 'On' : 'Off'}</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function saveExtPrefFavDesk() {
+  const prefs = loadUserExtPrefs(currentUser.id);
+  prefs.favoriteDeskIds = [...document.querySelectorAll('.fav-desk-sel')]
+    .map(s => s.value).filter(Boolean);
+  saveUserExtPrefs(currentUser.id, prefs);
+  toast('Favourite desks saved', 'success');
+}
+
+function toggleCrossTeam(team) {
+  const prefs = loadUserExtPrefs(currentUser.id);
+  const teams = prefs.crossTeamProximity || [];
+  if (teams.includes(team)) {
+    prefs.crossTeamProximity = teams.filter(t => t !== team);
+  } else {
+    prefs.crossTeamProximity = [...teams, team];
+  }
+  saveUserExtPrefs(currentUser.id, prefs);
+  const btn = [...document.querySelectorAll('.env-pref-btn')].find(b => b.textContent.trim() === team);
+  if (btn) btn.classList.toggle('active', prefs.crossTeamProximity.includes(team));
+  toast('Cross-team preference updated', 'success');
+}
+
+function toggleFlexMode() {
+  const prefs = loadUserExtPrefs(currentUser.id);
+  prefs.flexMode = !prefs.flexMode;
+  saveUserExtPrefs(currentUser.id, prefs);
+  toast('Flex mode ' + (prefs.flexMode ? 'enabled' : 'disabled'), 'success');
+  renderDashboard();
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// CALENDAR INTEGRATION
+// ══════════════════════════════════════════════════════════════════════════
+
+const CALENDAR_CONFIG_KEY = 'mdb_calendar_config';
+function loadCalendarConfig() { try { return JSON.parse(localStorage.getItem(CALENDAR_CONFIG_KEY)||'null') || {}; } catch { return {}; } }
+function saveCalendarConfig(c) { localStorage.setItem(CALENDAR_CONFIG_KEY, JSON.stringify(c)); }
+
+function showCalendarConnectModal() {
+  showModal(`
+    <div class="modal-title">Connect Calendar</div>
+    <div class="modal-desc" style="margin-bottom:20px">Choose your calendar provider to auto-detect office days.</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn btn-primary btn-full" onclick="connectMicrosoftCalendar()">
+        &#x1F535; Connect Microsoft 365 / Outlook
+      </button>
+      <button class="btn btn-secondary btn-full" onclick="connectGoogleCalendar()">
+        &#x1F534; Connect Google Calendar
+      </button>
+    </div>
+    <div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;font-size:12px;color:var(--text-muted)">
+      <strong>Privacy:</strong> Perch only reads event titles, locations, and dates to detect office attendance. Event content is never stored.
+    </div>
+    <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="hideModal()">Cancel</button>
+  `);
+}
+
+function connectMicrosoftCalendar() {
+  hideModal();
+  const clientId = loadCalendarConfig().msClientId || '';
+  if (typeof msal !== 'undefined' && clientId) {
+    _connectMSAL(clientId);
+  } else {
+    showModal(`
+      <div class="modal-title">Microsoft 365 Setup</div>
+      <div class="modal-desc">Enter your Azure AD application (client) ID to enable calendar sync.</div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);display:block;margin-bottom:5px">Azure AD Client ID</label>
+        <input id="ms-client-id" type="text" class="field-input" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+          value="${loadCalendarConfig().msClientId || ''}">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:5px">Found in Azure Portal &rarr; App registrations &rarr; your app &rarr; Application (client) ID</div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" onclick="hideModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveMsClientIdAndConnect()">Connect</button>
+      </div>
+    `);
+  }
+}
+
+function saveMsClientIdAndConnect() {
+  const clientId = document.getElementById('ms-client-id')?.value.trim();
+  if (!clientId) { toast('Enter a client ID', 'error'); return; }
+  const cfg = loadCalendarConfig();
+  cfg.msClientId = clientId;
+  saveCalendarConfig(cfg);
+  hideModal();
+  _connectMSAL(clientId);
+}
+
+async function _connectMSAL(clientId) {
+  if (typeof msal === 'undefined') {
+    toast('MSAL library not loaded — add it to index.html', 'error');
+    return;
+  }
+  try {
+    const msalApp = new msal.PublicClientApplication({
+      auth: { clientId, redirectUri: location.origin + location.pathname }
+    });
+    const request = { scopes: ['User.Read', 'Calendars.Read'] };
+    let result;
+    try {
+      result = await msalApp.acquireTokenSilent({ ...request, account: msalApp.getAllAccounts()[0] });
+    } catch {
+      result = await msalApp.loginPopup(request);
+    }
+    const cfg = loadCalendarConfig();
+    cfg.connected = true;
+    cfg.provider = 'microsoft';
+    cfg.accessToken = result.accessToken;
+    cfg.email = result.account?.username;
+    cfg.expiresAt = result.expiresOn?.toISOString();
+    saveCalendarConfig(cfg);
+    toast('Microsoft 365 calendar connected!', 'success');
+    syncCalendarDeclarations();
+  } catch (e) {
+    toast('Microsoft connection failed: ' + e.message, 'error');
+  }
+}
+
+function connectGoogleCalendar() {
+  hideModal();
+  const clientId = loadCalendarConfig().googleClientId || '';
+  showModal(`
+    <div class="modal-title">Google Calendar Setup</div>
+    <div class="modal-desc">Enter your Google OAuth 2.0 client ID to enable calendar sync.</div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);display:block;margin-bottom:5px">Google OAuth Client ID</label>
+      <input id="google-client-id" type="text" class="field-input" placeholder="xxxx.apps.googleusercontent.com"
+        value="${clientId}">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:5px">Google Cloud Console &rarr; Credentials &rarr; OAuth 2.0 Client IDs</div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="hideModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveGoogleClientIdAndConnect()">Connect</button>
+    </div>
+  `);
+}
+
+function saveGoogleClientIdAndConnect() {
+  const clientId = document.getElementById('google-client-id')?.value.trim();
+  if (!clientId) { toast('Enter a client ID', 'error'); return; }
+  const cfg = loadCalendarConfig();
+  cfg.googleClientId = clientId;
+  saveCalendarConfig(cfg);
+  hideModal();
+  _connectGoogle(clientId);
+}
+
+async function _connectGoogle(clientId) {
+  if (typeof google === 'undefined' || !google.accounts) {
+    toast('Google Identity Services not loaded', 'error');
+    return;
+  }
+  google.accounts.oauth2.initTokenClient({
+    client_id: clientId,
+    scope: 'https://www.googleapis.com/auth/calendar.events.readonly',
+    callback: async (response) => {
+      if (response.error) { toast('Google connection failed: ' + response.error, 'error'); return; }
+      const cfg = loadCalendarConfig();
+      cfg.connected = true;
+      cfg.provider = 'google';
+      cfg.accessToken = response.access_token;
+      cfg.expiresAt = new Date(Date.now() + response.expires_in * 1000).toISOString();
+      saveCalendarConfig(cfg);
+      toast('Google Calendar connected!', 'success');
+      syncCalendarDeclarations();
+    }
+  }).requestAccessToken();
+}
+
+function disconnectCalendar() {
+  saveCalendarConfig({});
+  toast('Calendar disconnected', 'info');
+  renderDeclareView();
+}
+
+async function syncCalendarDeclarations() {
+  const cfg = loadCalendarConfig();
+  if (!cfg.connected || !cfg.accessToken) {
+    toast('No calendar connected', 'error');
+    return;
+  }
+  try {
+    const events = cfg.provider === 'microsoft'
+      ? await fetchMicrosoftCalendarEvents(cfg.accessToken)
+      : await fetchGoogleCalendarEvents(cfg.accessToken);
+    const suggestions = parseCalendarForAttendance(events);
+    if (suggestions.length === 0) {
+      toast('No office attendance signals found in your next 14 days', 'info');
+      return;
+    }
+    showCalendarSuggestions(suggestions);
+  } catch (e) {
+    toast('Calendar sync failed: ' + e.message, 'error');
+    if (e.message.includes('401') || e.message.includes('403')) {
+      const cfg2 = loadCalendarConfig();
+      cfg2.connected = false;
+      saveCalendarConfig(cfg2);
+    }
+  }
+}
+
+async function fetchMicrosoftCalendarEvents(token) {
+  const start = new Date().toISOString();
+  const end = new Date(Date.now() + 14 * 86400000).toISOString();
+  const url = 'https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=' + start + '&endDateTime=' + end + '&$select=subject,start,end,location,isAllDay,isOnlineMeeting,bodyPreview&$top=100';
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if (!res.ok) throw new Error('Graph API error: ' + res.status);
+  const data = await res.json();
+  return (data.value || []).map(e => ({
+    title: e.subject,
+    date: e.start.dateTime ? e.start.dateTime.slice(0,10) : e.start.date,
+    isAllDay: e.isAllDay,
+    location: e.location?.displayName || '',
+    isOnlineMeeting: e.isOnlineMeeting || false,
+  }));
+}
+
+async function fetchGoogleCalendarEvents(token) {
+  const start = new Date().toISOString();
+  const end = new Date(Date.now() + 14 * 86400000).toISOString();
+  const url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=' + start + '&timeMax=' + end + '&singleEvents=true&orderBy=startTime&fields=items(summary,start,end,location,status)';
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+  if (!res.ok) throw new Error('Calendar API error: ' + res.status);
+  const data = await res.json();
+  return (data.items || []).filter(e => e.status !== 'cancelled').map(e => ({
+    title: e.summary || '',
+    date: e.start.date || e.start.dateTime?.slice(0,10),
+    isAllDay: !!e.start.date,
+    location: e.location || '',
+    isOnlineMeeting: false,
+  }));
+}
+
+function parseCalendarForAttendance(events) {
+  const officePattern = /\b(in.?office|office.?day|in the office|working from office|at hq|at the office)\b/i;
+  const suggestions = [];
+
+  for (const ev of events) {
+    if (ev.isAllDay && (officePattern.test(ev.title) || officePattern.test(ev.location))) {
+      const existing = getDeclaration(currentUser.id, ev.date);
+      if (!existing) {
+        suggestions.push({ date: ev.date, status: 'yes', reason: 'All-day event: "' + ev.title + '"', source: 'calendar' });
+      }
+    }
+  }
+
+  const byDay = {};
+  for (const ev of events) {
+    if (!ev.isAllDay && !ev.isOnlineMeeting) {
+      if (!byDay[ev.date]) byDay[ev.date] = [];
+      byDay[ev.date].push(ev);
+    }
+  }
+  for (const [date, evs] of Object.entries(byDay)) {
+    if (evs.length >= 3) {
+      const existing = getDeclaration(currentUser.id, date);
+      if (!existing && !suggestions.find(s => s.date === date)) {
+        suggestions.push({ date, status: 'maybe', reason: evs.length + ' in-person meetings detected', source: 'calendar' });
+      }
+    }
+  }
+
+  return suggestions.filter(s => s.date >= today()).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function showCalendarSuggestions(suggestions) {
+  showModal(`
+    <div class="modal-title">Calendar Attendance Signals</div>
+    <div class="modal-desc">Perch detected these office days in your calendar. Accept or dismiss each one.</div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow-y:auto;margin:14px 0">
+      ${suggestions.map((s, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:8px">
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:13px">${parseDate(s.date).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short'})}</div>
+            <div style="font-size:11.5px;color:var(--text-muted)">${s.reason}</div>
+          </div>
+          <span class="pill ${s.status === 'yes' ? 'pill-blue' : 'pill-amber'}">${s.status}</span>
+          <input type="checkbox" class="cal-sugg-cb" value="${i}" checked>
+        </div>
+      `).join('')}
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="hideModal()">Dismiss all</button>
+      <button class="btn btn-primary" onclick="acceptCalendarSuggestions(${JSON.stringify(suggestions).replace(/"/g,'&quot;')})">Accept selected</button>
+    </div>
+  `);
+}
+
+function acceptCalendarSuggestions(suggestions) {
+  const checked = [...document.querySelectorAll('.cal-sugg-cb:checked')].map(cb => parseInt(cb.value));
+  let count = 0;
+  for (const idx of checked) {
+    const s = suggestions[idx];
+    if (s) { setDeclaration(currentUser.id, s.date, s.status, 'calendar'); count++; }
+  }
+  hideModal();
+  toast(count + ' calendar day' + (count !== 1 ? 's' : '') + ' declared', 'success');
+  renderDeclareView();
+}
+
+function simulateCalendarSync() {
+  const fakeDates = Array.from({length: 10}, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i + 1);
+    return d;
+  }).filter(d => d.getDay() !== 0 && d.getDay() !== 6);
+
+  const events = [];
+  fakeDates.forEach((d, i) => {
+    const date = toDateStr(d);
+    if (i % 3 === 0) {
+      events.push({ title: 'Office Day', date, isAllDay: true, location: 'London HQ', isOnlineMeeting: false });
+    } else if (i % 3 === 1) {
+      ['Team standup', 'Design review', '1:1 with manager'].forEach(title => {
+        events.push({ title, date, isAllDay: false, location: 'Meeting Room A', isOnlineMeeting: false });
+      });
+    }
+  });
+
+  const suggestions = parseCalendarForAttendance(events);
+  if (suggestions.length === 0) {
+    toast('No new signals to import', 'info');
+    return;
+  }
+  showCalendarSuggestions(suggestions);
 }
 
 document.addEventListener('DOMContentLoaded', init);

@@ -227,6 +227,7 @@ function navigate(view) {
     neighbourhoods: renderNeighbourhoods,
     feedback:       renderAdminFeedback,
     aianalysis:     renderAiAnalysis,
+    allocations:    renderAllocations,
     rules:          renderRules,
     anchordays:     renderAnchorDays,
     deskconfig:     renderDeskConfig,
@@ -2285,6 +2286,137 @@ function renderAiAnalysis() {
       </div>
     </div>
   `;
+}
+
+// ── Allocation Engine Admin ────────────────────────────────────────────────
+
+function renderAllocations() {
+  const container = document.getElementById('view-allocations');
+  if (!container) return;
+
+  const tomorrow = (() => { const d = new Date(); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })();
+  const todayStr = (() => { return new Date().toISOString().slice(0,10); })();
+  const logs = (() => { try { return JSON.parse(localStorage.getItem('mdb_alloc_logs')||'[]'); } catch { return []; } })();
+  const allocs = (() => { try { return JSON.parse(localStorage.getItem('mdb_allocations')||'[]'); } catch { return []; } })();
+  const allocSettings = (() => { try { return JSON.parse(localStorage.getItem('mdb_alloc_settings')||'null') || {walkInPoolPct:20}; } catch { return {walkInPoolPct:20}; } })();
+
+  const tomorrowAllocs = allocs.filter(a => a.date === tomorrow && a.status !== 'released');
+  const todayAllocs = allocs.filter(a => a.date === todayStr && a.status !== 'released');
+
+  const walkInCount = Math.max(1, Math.round(28 * (allocSettings.walkInPoolPct||20) / 100));
+
+  container.innerHTML = `
+    <div class="page-header">
+      <h1>Allocation Engine</h1>
+      <p>Smart desk allocation — run nightly, visible here</p>
+    </div>
+
+    <div class="admin-stats" style="margin-bottom:24px">
+      <div class="admin-stat">
+        <div class="admin-stat-value">${tomorrowAllocs.length}</div>
+        <div class="admin-stat-label">Tomorrow's Allocations</div>
+        <div class="admin-stat-sub">${tomorrowAllocs.filter(a=>a.status==='confirmed').length} confirmed</div>
+      </div>
+      <div class="admin-stat">
+        <div class="admin-stat-value">${walkInCount}</div>
+        <div class="admin-stat-label">Walk-in Pool</div>
+        <div class="admin-stat-sub">${allocSettings.walkInPoolPct||20}% of desks</div>
+      </div>
+      <div class="admin-stat">
+        <div class="admin-stat-value">${logs.length}</div>
+        <div class="admin-stat-label">Engine Runs</div>
+        <div class="admin-stat-sub">${logs[0] ? 'Last: ' + parseDate(logs[0].date).toLocaleDateString('en-GB',{day:'numeric',month:'short'}) : 'Never run'}</div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Run Allocation Engine</span><span class="pill pill-amber">Demo</span></div>
+        <div class="card-body" style="padding:16px 18px">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">
+            Allocates desks for tomorrow based on attendance declarations. In production, this runs automatically at 6pm each day.
+          </p>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <label style="font-size:13px;font-weight:500;color:var(--text-secondary)">Walk-in pool %:</label>
+              <input type="number" id="walkin-pct" value="${allocSettings.walkInPoolPct||20}" min="5" max="50" style="width:70px;padding:6px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+              <button class="btn btn-sm btn-secondary" onclick="adminSaveAllocSettings()">Save</button>
+            </div>
+            <button class="btn btn-primary btn-full" onclick="adminRunAllocation('${tomorrow}')">
+              &#9654; Run Tonight's Allocation (for ${parseDate(tomorrow).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short'})})
+            </button>
+            <button class="btn btn-secondary btn-full" onclick="adminRunAllocation('${tomorrow}',true)">
+              &#x1F504; Re-run (overwrite existing)
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Engine Log</span></div>
+        <div class="card-body" style="padding:8px 16px;max-height:220px;overflow-y:auto">
+          ${logs.length === 0 ? '<p style="font-size:13px;color:var(--text-muted);padding:8px 0">No runs yet.</p>' :
+            logs.map(log => `
+              <div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">
+                <div style="flex:1">
+                  <div style="font-size:13px;font-weight:600">${parseDate(log.date).toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'})}</div>
+                  <div style="font-size:11.5px;color:var(--text-muted)">${log.allocations?.length || 0} allocations &middot; Walk-in: ${log.walkInPool?.length || 0} desks &middot; Run at ${new Date(log.runAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</div>
+                </div>
+              </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card one-col">
+      <div class="card-header">
+        <span class="card-title">Tomorrow's Allocations (${parseDate(tomorrow).toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'short'})})</span>
+        <span class="pill pill-blue">${tomorrowAllocs.length} allocated</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        ${tomorrowAllocs.length === 0 ? '<p style="font-size:13px;color:var(--text-muted);padding:16px 20px">No allocations yet — run the engine above.</p>' :
+          `<table class="admin-table">
+            <thead><tr><th>User</th><th>Desk</th><th>Type</th><th>Status</th><th>Reason</th></tr></thead>
+            <tbody>
+              ${tomorrowAllocs.map(a => {
+                const user = userInfo(a.userId);
+                return `<tr>
+                  <td>
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div class="user-avatar" style="background:${avatarColor(user?.fullName||'?')};width:24px;height:24px;font-size:10px;flex-shrink:0">${initials(user?.fullName||'?')}</div>
+                      ${escHtml(user?.fullName || a.userId)}
+                    </div>
+                  </td>
+                  <td><strong>${escHtml(a.deskId)}</strong></td>
+                  <td><span class="pill ${a.type==='power-block'?'pill-blue':a.type==='walk-in'?'pill-green':'pill-amber'}" style="font-size:11px">${escHtml(a.type||'soft')}</span></td>
+                  <td><span class="pill ${a.status==='confirmed'?'pill-blue':'pill-grey'}" style="font-size:11px">${escHtml(a.status)}</span></td>
+                  <td style="font-size:12px;color:var(--text-muted)">${escHtml((a.reasonFactors||[]).join(', '))}</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>`}
+      </div>
+    </div>
+  `;
+}
+
+function adminRunAllocation(date, overwrite) {
+  if (overwrite) {
+    const allocs = (() => { try { return JSON.parse(localStorage.getItem('mdb_allocations')||'[]'); } catch { return []; } })();
+    localStorage.setItem('mdb_allocations', JSON.stringify(allocs.filter(a => a.date !== date)));
+  }
+  if (typeof runAllocationEngine === 'function') {
+    const result = runAllocationEngine(date);
+    toast('Allocation complete — ' + result.count + ' desks allocated, ' + result.walkInCount + ' held for walk-ins', 'success');
+    renderAllocations();
+  } else {
+    toast('Allocation engine not available — open the main app first to initialise user data', 'error');
+  }
+}
+
+function adminSaveAllocSettings() {
+  const pct = parseInt(document.getElementById('walkin-pct')?.value) || 20;
+  localStorage.setItem('mdb_alloc_settings', JSON.stringify({ walkInPoolPct: Math.max(5, Math.min(50, pct)) }));
+  toast('Walk-in pool setting saved', 'success');
+  renderAllocations();
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
