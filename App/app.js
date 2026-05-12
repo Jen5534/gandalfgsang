@@ -4622,8 +4622,8 @@ function renderProfileView() {
   `;
 }
 
-const THEMES = ['light', 'dark', 'blue', 'purple', 'warm', 'contrast', 'hicontrast'];
-const THEME_LABELS = { light: '☀️ Light', dark: '🌙 Dark', blue: '💙 Blue', purple: '💜 Purple', warm: '🟠 Warm', contrast: '⬛ Contrast', hicontrast: '🔲 Hi-Text' };
+const THEMES = ['light', 'dark', 'blue', 'purple', 'warm', 'contrast'];
+const THEME_LABELS = { light: '☀️ Light', dark: '🌙 Dark', blue: '💙 Blue', purple: '💜 Purple', warm: '🟠 Warm', contrast: '⬛ Contrast' };
 
 function cycleTheme() {
   const current = document.documentElement.dataset.theme || 'light';
