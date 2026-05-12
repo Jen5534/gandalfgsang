@@ -2276,3 +2276,30 @@ html[data-theme="contrast"] {
 html[data-theme="contrast"] .card { background: var(--card-bg); border-color: var(--border); }
 html[data-theme="contrast"] .field-input { background: var(--bg); color: var(--text); border-color: var(--border); }
 html[data-theme="contrast"] .modal { background: var(--card-bg); }
+
+/* High Contrast Text — white bg, pure black text, no muted colours */
+html[data-theme="hicontrast"] {
+  --primary: #003820;
+  --primary-hover: #002010;
+  --primary-light: #d0ede3;
+  --sidebar-bg: #000000;
+  --sidebar-text: #ffffff;
+  --sidebar-hover-bg: rgba(255,255,255,0.15);
+  --sidebar-active-bg: rgba(255,255,255,0.25);
+  --sidebar-active-text: #ffffff;
+  --bg: #ffffff;
+  --card-bg: #ffffff;
+  --border: #000000;
+  --border-hover: #000000;
+  --text: #000000;
+  --text-secondary: #000000;
+  --text-muted: #000000;
+  --shadow: 0 1px 3px rgba(0,0,0,0.25);
+  --shadow-md: 0 4px 6px rgba(0,0,0,0.25);
+}
+html[data-theme="hicontrast"] body { font-weight: 500; }
+html[data-theme="hicontrast"] .card { background: #ffffff; border: 1.5px solid #000000; }
+html[data-theme="hicontrast"] .field-input { background: #ffffff; color: #000000; border-color: #000000; }
+html[data-theme="hicontrast"] .modal { background: #ffffff; border: 2px solid #000000; }
+html[data-theme="hicontrast"] .pill { border: 1px solid currentColor; }
+html[data-theme="hicontrast"] p, html[data-theme="hicontrast"] span, html[data-theme="hicontrast"] div { color: inherit; }
