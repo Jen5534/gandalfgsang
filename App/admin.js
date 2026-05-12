@@ -1662,13 +1662,11 @@ Return ONLY a valid JSON object (no markdown fences, no preamble — raw JSON on
 Rules: working_well = 2-3 items; concerns = 2-3 items; recommendations = 3-4 items; priority must be "high", "medium" or "low". Cite actual numbers. Keep each item to 1-2 sentences.`;
 
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+    const resp = await fetch('/api/claude', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-allow-browser': 'true',
       },
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',

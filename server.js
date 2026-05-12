@@ -1,13 +1,14 @@
-// Simple static file server for local development
+// Simple static file server + Anthropic API proxy for local development
 // Usage: node server.js
 // Then open http://localhost:3000
 
-const http = require('http');
-const fs   = require('fs');
-const path = require('path');
+const http  = require('http');
+const https = require('https');
+const fs    = require('fs');
+const path  = require('path');
 
-const PORT    = 3000;
-const APP_DIR = path.join(__dirname, 'App');
+const PORT     = 3000;
+const APP_DIR  = path.join(__dirname, 'App');
 const DATA_DIR = path.join(__dirname, 'data');
 
 const MIME = {
@@ -21,14 +22,53 @@ const MIME = {
 };
 
 http.createServer((req, res) => {
-  let urlPath = req.url.split('?')[0];
-  if (urlPath === '/' || urlPath === '') urlPath = '/index.html';
+  const urlPath = req.url.split('?')[0];
 
-  // Resolve to App/ first, then data/ for data files
-  let filePath = path.join(APP_DIR, urlPath);
-  if (!fs.existsSync(filePath)) {
-    filePath = path.join(DATA_DIR, urlPath);
+  // ── Anthropic API proxy ─────────────────────────────────────────────────
+  if (req.method === 'POST' && urlPath === '/api/claude') {
+    const apiKey = req.headers['x-api-key'];
+    if (!apiKey) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: { message: 'Missing x-api-key header' } }));
+      return;
+    }
+
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      const bodyBuf = Buffer.from(body);
+      const options = {
+        hostname: 'api.anthropic.com',
+        path:     '/v1/messages',
+        method:   'POST',
+        headers:  {
+          'Content-Type':    'application/json',
+          'x-api-key':       apiKey,
+          'anthropic-version': '2023-06-01',
+          'Content-Length':  bodyBuf.length,
+        },
+      };
+
+      const proxyReq = https.request(options, proxyRes => {
+        res.writeHead(proxyRes.statusCode, { 'Content-Type': 'application/json' });
+        proxyRes.pipe(res);
+      });
+
+      proxyReq.on('error', err => {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: err.message } }));
+      });
+
+      proxyReq.write(bodyBuf);
+      proxyReq.end();
+    });
+    return;
   }
+
+  // ── Static files ────────────────────────────────────────────────────────
+  let servePath = urlPath === '/' ? '/index.html' : urlPath;
+  let filePath  = path.join(APP_DIR, servePath);
+  if (!fs.existsSync(filePath)) filePath = path.join(DATA_DIR, servePath);
 
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     res.writeHead(404); res.end('Not found'); return;
@@ -38,8 +78,9 @@ http.createServer((req, res) => {
   const mime = MIME[ext] || 'application/octet-stream';
   res.writeHead(200, { 'Content-Type': mime });
   fs.createReadStream(filePath).pipe(res);
+
 }).listen(PORT, () => {
-  console.log(`Perch running at http://localhost:${PORT}`);
-  console.log(`Admin console: http://localhost:${PORT}/admin.html`);
+  console.log(`Perch running at        http://localhost:${PORT}`);
+  console.log(`Admin console at        http://localhost:${PORT}/admin.html`);
   console.log('Press Ctrl+C to stop.');
 });
