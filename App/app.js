@@ -3455,7 +3455,7 @@ function renderDeclareView() {
         <div class="card one-col" style="margin-bottom:16px">
           <div class="card-header">
             <span class="card-title">Declare your office days</span>
-            <span class="pill pill-blue" style="font-size:11px">${thisWeekYes} day${thisWeekYes !== 1 ? 's' : ''} this week</span>
+            <span class="pill pill-blue declare-week-pill" style="font-size:11px">${thisWeekYes} day${thisWeekYes !== 1 ? 's' : ''} this week</span>
           </div>
           <div class="card-body" style="padding:12px 16px">
             <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
@@ -3476,7 +3476,7 @@ function renderDeclareView() {
                   ${isWeekSep ? `<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);padding:6px 0 2px">
                     ${dObj.toLocaleDateString('en-GB', {day:'numeric', month:'long'})} week
                   </div>` : ''}
-                  <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;background:${decl?.status === 'yes' ? '#E6F2EE' : decl?.status === 'no' ? '#FEE2E2' : decl?.status === 'maybe' ? '#FEF3C7' : 'var(--bg)'};border:1px solid ${decl?.status === 'yes' ? '#A7D7C5' : decl?.status === 'no' ? '#FECACA' : decl?.status === 'maybe' ? '#FDE68A' : 'var(--border)'}">
+                  <div data-declare-row="${dateStr}" style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;background:${decl?.status === 'yes' ? '#E6F2EE' : decl?.status === 'no' ? '#FEE2E2' : decl?.status === 'maybe' ? '#FEF3C7' : 'var(--bg)'};border:1px solid ${decl?.status === 'yes' ? '#A7D7C5' : decl?.status === 'no' ? '#FECACA' : decl?.status === 'maybe' ? '#FDE68A' : 'var(--border)'}">
                     <div style="min-width:110px">
                       <div style="font-weight:600;font-size:13px">${weekLabel}</div>
                       <div style="font-size:12px;color:var(--text-muted)">${dateLabel}</div>
@@ -3487,10 +3487,13 @@ function renderDeclareView() {
                     <div style="display:flex;gap:6px;margin-left:auto">
                       ${isPast ? '<span style="font-size:12px;color:var(--text-muted)">Past</span>' : `
                         <button class="btn btn-sm ${decl?.status==='yes' ? 'btn-primary' : 'btn-secondary'}"
+                          data-declare-btn="${dateStr}-yes"
                           onclick="declareDay('${dateStr}','yes')" style="min-width:44px">Yes</button>
                         <button class="btn btn-sm ${decl?.status==='maybe' ? 'btn-primary' : 'btn-secondary'}"
+                          data-declare-btn="${dateStr}-maybe"
                           onclick="declareDay('${dateStr}','maybe')" style="min-width:52px">Maybe</button>
                         <button class="btn btn-sm ${decl?.status==='no' ? '' : 'btn-secondary'}"
+                          data-declare-btn="${dateStr}-no"
                           style="${decl?.status==='no' ? 'background:var(--danger);color:white;border-color:var(--danger)' : ''};min-width:44px"
                           onclick="declareDay('${dateStr}','no')">No</button>
                       `}
@@ -3557,12 +3560,47 @@ function declareDay(date, status) {
   if (existing?.status === status) {
     setDeclaration(currentUser.id, date, 'none');
     toast('Declaration cleared', 'info');
+    updateDeclareRow(date, null);
   } else {
     setDeclaration(currentUser.id, date, status);
     const labels = { yes: 'office day', no: 'working from home', maybe: 'maybe in office' };
     toast(parseDate(date).toLocaleDateString('en-GB',{weekday:'long'}) + ' — ' + labels[status], 'success');
+    updateDeclareRow(date, status);
   }
-  renderDeclareView();
+}
+
+function updateDeclareRow(date, status) {
+  const row = document.querySelector(`[data-declare-row="${date}"]`);
+  if (!row) return;
+
+  const colours = {
+    yes:   { bg: '#E6F2EE', border: '#A7D7C5' },
+    no:    { bg: '#FEE2E2', border: '#FECACA' },
+    maybe: { bg: '#FEF3C7', border: '#FDE68A' },
+    null:  { bg: 'var(--bg)', border: 'var(--border)' },
+  };
+  const c = colours[status] || colours.null;
+  row.style.background   = c.bg;
+  row.style.borderColor  = c.border;
+
+  const yesBtn   = document.querySelector(`[data-declare-btn="${date}-yes"]`);
+  const maybeBtn = document.querySelector(`[data-declare-btn="${date}-maybe"]`);
+  const noBtn    = document.querySelector(`[data-declare-btn="${date}-no"]`);
+
+  if (yesBtn) yesBtn.className   = `btn btn-sm ${status === 'yes'   ? 'btn-primary' : 'btn-secondary'}`;
+  if (maybeBtn) maybeBtn.className = `btn btn-sm ${status === 'maybe' ? 'btn-primary' : 'btn-secondary'}`;
+  if (noBtn) {
+    noBtn.className = `btn btn-sm ${status === 'no' ? '' : 'btn-secondary'}`;
+    noBtn.style.cssText = `${status === 'no' ? 'background:var(--danger);color:white;border-color:var(--danger)' : ''};min-width:44px`;
+  }
+
+  // Update this-week count pill
+  const mon = weekMonday(today());
+  const count = loadDeclarations().filter(d =>
+    d.userId === currentUser.id && d.date >= mon && d.date <= addDays(mon, 4) && d.status === 'yes'
+  ).length;
+  const pill = document.querySelector('.declare-week-pill');
+  if (pill) pill.textContent = `${count} day${count !== 1 ? 's' : ''} this week`;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
