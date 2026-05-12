@@ -1127,41 +1127,6 @@ input[type="date"]:focus { outline: none; border-color: var(--primary); }
 .env-pref-btn:hover { border-color: var(--primary); color: var(--primary); }
 .env-pref-btn.active { background: var(--primary); border-color: var(--primary); color: white; }
 
-/* Arrival time slider */
-.arrival-slider-wrap { flex: 1; min-width: 180px; max-width: 320px; }
-.arrival-slider-ticks { display: flex; justify-content: space-between; margin-bottom: 4px; }
-.arrival-slider-ticks span { font-size: 1.05rem; color: var(--text-muted); width: 20%; text-align: center; }
-.arrival-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--border);
-  outline: none;
-  cursor: pointer;
-}
-.arrival-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--primary);
-  cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-}
-.arrival-slider::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  background: var(--primary);
-  cursor: pointer;
-  border: 2px solid white;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.2);
-}
-
 .desk-env {
   display: flex;
   flex-wrap: wrap;
