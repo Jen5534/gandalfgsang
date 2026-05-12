@@ -1901,6 +1901,16 @@ async function loadWhosIn() {
 
 let floorPlanDate = null;
 let floorPlanFloor = 'ground';
+let floorPlanHeatmap = false;
+
+function getHeatColour(ratio) {
+  if (ratio < 0.25) return '#22c55e';  // green
+  if (ratio < 0.5)  return '#86efac';  // light green
+  if (ratio < 0.75) return '#fbbf24';  // amber
+  return '#ef4444';                     // red
+}
+
+function fpToggleHeatmap() { floorPlanHeatmap = !floorPlanHeatmap; renderFloorPlan(); }
 
 function loadFloorPlans() {
   const defaults = [
@@ -2022,6 +2032,7 @@ function renderFloorPlan() {
       <div class="floor-tabs" style="margin-bottom:0">${tabs}</div>
       <label style="font-size:13px;font-weight:500;color:var(--text-secondary)">Date:</label>
       <input type="date" value="${floorPlanDate}" onchange="fpSetDate(this.value)">
+      <button class="btn btn-sm ${floorPlanHeatmap ? 'btn-primary' : 'btn-secondary'}" onclick="fpToggleHeatmap()">&#x1F321; Heatmap</button>
       <span style="margin-left:auto;font-size:12px;color:var(--text-secondary)">
         ${floorBookings.length} booked &nbsp;·&nbsp; ${available} available
       </span>
@@ -2030,32 +2041,56 @@ function renderFloorPlan() {
     <div class="fp-wrap">
       <img src="${imgSrc}" class="fp-img" alt="${activePlan?.name || 'Floor plan'}"
            onerror="this.onerror=null;this.src=generateFloorPlanSVG('${floorKey}')">
-      ${floorDesks.map(desk => {
-        const coords = DESK_COORDS[desk.id];
-        if (!coords) return '';
-        const booking = floorBookings.find(b => b.deskId === desk.id && (!b.slot || b.slot === 'full'));
-        const amBook  = floorBookings.find(b => b.deskId === desk.id && b.slot === 'am');
-        const pmBook  = floorBookings.find(b => b.deskId === desk.id && b.slot === 'pm');
-        const anyBook = booking || amBook || pmBook;
-        const isMe    = anyBook?.userId === currentUser.id || amBook?.userId === currentUser.id || pmBook?.userId === currentUser.id;
-        const mainBook = booking || amBook || pmBook;
-        if (mainBook?.user) {
-          const u = mainBook.user;
-          return `<div class="fp-marker fp-marker-booked${isMe ? ' fp-marker-me' : ''}"
+      ${(() => {
+        const nbOccupancy = {};
+        floorDesks.forEach(d => {
+          const nb = d.neighbourhood || 'Other';
+          if (!nbOccupancy[nb]) nbOccupancy[nb] = { total: 0, booked: 0 };
+          nbOccupancy[nb].total++;
+          if (floorBookings.some(b => b.deskId === d.id)) nbOccupancy[nb].booked++;
+        });
+        return floorDesks.map(desk => {
+          const coords = DESK_COORDS[desk.id];
+          if (!coords) return '';
+          const booking = floorBookings.find(b => b.deskId === desk.id && (!b.slot || b.slot === 'full'));
+          const amBook  = floorBookings.find(b => b.deskId === desk.id && b.slot === 'am');
+          const pmBook  = floorBookings.find(b => b.deskId === desk.id && b.slot === 'pm');
+          const anyBook = booking || amBook || pmBook;
+          const isMe    = anyBook?.userId === currentUser.id || amBook?.userId === currentUser.id || pmBook?.userId === currentUser.id;
+          const mainBook = booking || amBook || pmBook;
+          const nb = desk.neighbourhood || 'Other';
+          const nbData = nbOccupancy[nb] || { total: 1, booked: 0 };
+          const heatColour = getHeatColour(nbData.booked / nbData.total);
+          if (mainBook?.user) {
+            const u = mainBook.user;
+            const heatRingStyle = floorPlanHeatmap ? `;box-shadow:0 0 0 3px ${heatColour}` : '';
+            return `<div class="fp-marker fp-marker-booked${isMe ? ' fp-marker-me' : ''}"
+                 style="left:${coords.x}%;top:${coords.y}%${heatRingStyle}"
+                 onclick="fpShowDetail('${desk.id}','${floorPlanDate}')">
+              <div class="fp-avatar" style="background:${avatarColor(u.fullName)}">${initials(u.fullName)}</div>
+              <div class="fp-label">${desk.id}</div>
+            </div>`;
+          }
+          const heatStyle = floorPlanHeatmap
+            ? `style="background:${heatColour}"`
+            : '';
+          return `<div class="fp-marker fp-marker-empty"
                style="left:${coords.x}%;top:${coords.y}%"
                onclick="fpShowDetail('${desk.id}','${floorPlanDate}')">
-            <div class="fp-avatar" style="background:${avatarColor(u.fullName)}">${initials(u.fullName)}</div>
-            <div class="fp-label">${desk.id}</div>
+            <div class="fp-dot" ${heatStyle}></div>
+            <div class="fp-label fp-label-desk">${desk.id}</div>
           </div>`;
-        }
-        return `<div class="fp-marker fp-marker-empty"
-             style="left:${coords.x}%;top:${coords.y}%"
-             onclick="fpShowDetail('${desk.id}','${floorPlanDate}')">
-          <div class="fp-dot"></div>
-          <div class="fp-label fp-label-desk">${desk.id}</div>
-        </div>`;
-      }).join('')}
+        }).join('');
+      })()}
     </div>
+    ${floorPlanHeatmap ? `
+    <div style="display:flex;align-items:center;gap:12px;margin-top:10px;font-size:12px;color:var(--text-secondary);flex-wrap:wrap">
+      <span style="font-weight:600">Occupancy:</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#22c55e;margin-right:4px;vertical-align:middle"></span>Quiet (&lt;25%)</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#86efac;margin-right:4px;vertical-align:middle"></span>Low (25–50%)</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#fbbf24;margin-right:4px;vertical-align:middle"></span>Busy (50–75%)</span>
+      <span><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444;margin-right:4px;vertical-align:middle"></span>Full (&gt;75%)</span>
+    </div>` : ''}
 
     <div style="margin-top:20px">
       <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;
@@ -3472,6 +3507,11 @@ function renderDeclareView() {
       <span>&#128075; Monday nudge &mdash; declare your office days for this week so the system can allocate your desk in advance.</span>
     </div>` : '';
 
+  const allTeamDecls = loadDeclarations().filter(d => {
+    const u = allUsers.find(u => u.id === d.userId);
+    return u && u.team === currentUser.team && u.location === currentUser.location && d.userId !== currentUser.id;
+  });
+
   const allDecls = loadDeclarations().filter(d => d.userId === currentUser.id);
   const mon = weekMonday(today());
   const thisWeekYes = allDecls.filter(d =>
@@ -3527,6 +3567,20 @@ function renderDeclareView() {
                     ${hasBooking ? '<span class="pill pill-blue" style="font-size:10px;margin-right:4px">Desk booked</span>' : ''}
                     ${alloc ? '<span class="pill" style="font-size:10px;margin-right:4px;background:#E6F2EE;color:#006A4D;border:1px solid #A7D7C5">Allocated: ' + alloc.deskId + '</span>' : ''}
                     ${decl?.source === 'calendar' ? '<span class="pill pill-blue" style="font-size:10px;margin-right:4px">From calendar</span>' : ''}
+                    ${(() => {
+                      const teammates = allTeamDecls.filter(d => d.date === dateStr && d.status === 'yes');
+                      const shownTeam = teammates.slice(0, 3);
+                      const moreCount = teammates.length - shownTeam.length;
+                      return teammates.length > 0 ? `
+                        <div style="display:flex;align-items:center;gap:3px;flex-shrink:0" title="${teammates.map(d => allUsers.find(u=>u.id===d.userId)?.fullName||'').join(', ')} also in">
+                          ${shownTeam.map(d => {
+                            const u = allUsers.find(u => u.id === d.userId);
+                            if (!u) return '';
+                            return `<div class="user-avatar" style="width:20px;height:20px;font-size:7px;background:${avatarColor(u.fullName)};flex-shrink:0" title="${u.fullName}">${initials(u.fullName)}</div>`;
+                          }).join('')}
+                          ${moreCount > 0 ? `<span style="font-size:10px;color:var(--text-muted);margin-left:2px">+${moreCount}</span>` : ''}
+                        </div>` : '';
+                    })()}
                     <div style="display:flex;gap:6px;margin-left:auto">
                       ${isPast ? '<span style="font-size:12px;color:var(--text-muted)">Past</span>' : `
                         <button class="btn btn-sm ${decl?.status==='yes' ? 'btn-primary' : 'btn-secondary'}"
