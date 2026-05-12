@@ -1987,6 +1987,31 @@ function renderFloorPlan() {
     <div class="fp-wrap">
       <img src="${imgSrc}" class="fp-img" alt="${activePlan?.name || 'Floor plan'}"
            onerror="this.onerror=null;this.src=generateFloorPlanSVG('${floorKey}')">
+      ${floorDesks.map(desk => {
+        const coords = DESK_COORDS[desk.id];
+        if (!coords) return '';
+        const booking = floorBookings.find(b => b.deskId === desk.id && (!b.slot || b.slot === 'full'));
+        const amBook  = floorBookings.find(b => b.deskId === desk.id && b.slot === 'am');
+        const pmBook  = floorBookings.find(b => b.deskId === desk.id && b.slot === 'pm');
+        const anyBook = booking || amBook || pmBook;
+        const isMe    = anyBook?.userId === currentUser.id || amBook?.userId === currentUser.id || pmBook?.userId === currentUser.id;
+        const mainBook = booking || amBook || pmBook;
+        if (mainBook?.user) {
+          const u = mainBook.user;
+          return `<div class="fp-marker fp-marker-booked${isMe ? ' fp-marker-me' : ''}"
+               style="left:${coords.x}%;top:${coords.y}%"
+               onclick="fpShowDetail('${desk.id}','${floorPlanDate}')">
+            <div class="fp-avatar" style="background:${avatarColor(u.fullName)}">${initials(u.fullName)}</div>
+            <div class="fp-label">${desk.id}</div>
+          </div>`;
+        }
+        return `<div class="fp-marker fp-marker-empty"
+             style="left:${coords.x}%;top:${coords.y}%"
+             onclick="fpShowDetail('${desk.id}','${floorPlanDate}')">
+          <div class="fp-dot"></div>
+          <div class="fp-label fp-label-desk">${desk.id}</div>
+        </div>`;
+      }).join('')}
     </div>
 
     <div style="margin-top:20px">
@@ -2012,35 +2037,59 @@ function fpSetDate(date) {
 }
 
 function fpShowDetail(deskId, date) {
-  const desk = DESKS.find(d => d.id === deskId);
+  const desk     = DESKS.find(d => d.id === deskId);
   const bookings = getBookings({ date }).filter(b => b.deskId === deskId);
-  const booking = bookings[0];
+  const fullBook = bookings.find(b => !b.slot || b.slot === 'full');
+  const amBook   = bookings.find(b => b.slot === 'am');
+  const pmBook   = bookings.find(b => b.slot === 'pm');
+
+  const canBookFull = !fullBook && !amBook && !pmBook;
+  const canBookAm   = !fullBook && !amBook;
+  const canBookPm   = !fullBook && !pmBook;
+
+  const myFull = fullBook?.userId === currentUser.id ? fullBook : null;
+  const myAm   = amBook?.userId   === currentUser.id ? amBook   : null;
+  const myPm   = pmBook?.userId   === currentUser.id ? pmBook   : null;
+
+  const bookingRows = [fullBook, amBook, pmBook].filter(Boolean).map(b => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px;background:var(--bg);border-radius:var(--radius);margin-bottom:8px">
+      <div class="user-avatar" style="background:${avatarColor(b.user.fullName)};width:32px;height:32px;font-size:13px">${initials(b.user.fullName)}</div>
+      <div>
+        <div style="font-weight:600;font-size:13px">${b.user.fullName}${b.userId === currentUser.id ? ' <span style="color:var(--primary)">(you)</span>' : ''}</div>
+        <div style="font-size:11px;color:var(--text-secondary)">${b.user.role} · <span class="slot-badge slot-${b.slot||'full'}">${slotLabel(b.slot||'full')}</span></div>
+      </div>
+    </div>`).join('');
+
+  const bookBtns = [
+    canBookFull ? `<button class="btn btn-primary btn-sm" onclick="hideModal();confirmBook('${deskId}','${date}','full')">Book Full Day</button>` : '',
+    !canBookFull && canBookAm ? `<button class="btn btn-primary btn-sm" onclick="hideModal();confirmBook('${deskId}','${date}','am')">Book AM</button>` : '',
+    !canBookFull && canBookPm ? `<button class="btn btn-secondary btn-sm" onclick="hideModal();confirmBook('${deskId}','${date}','pm')">Book PM</button>` : '',
+    myFull ? `<button class="btn btn-sm" style="border:1px solid var(--danger);color:var(--danger)" onclick="hideModal();fpCancelBooking('${myFull.id}')">Cancel My Booking</button>` : '',
+    myAm   ? `<button class="btn btn-sm" style="border:1px solid var(--danger);color:var(--danger)" onclick="hideModal();fpCancelBooking('${myAm.id}')">Cancel My AM</button>` : '',
+    myPm   ? `<button class="btn btn-sm" style="border:1px solid var(--danger);color:var(--danger)" onclick="hideModal();fpCancelBooking('${myPm.id}')">Cancel My PM</button>` : '',
+  ].filter(Boolean).join('');
 
   showModal(`
     <div class="modal-title">${deskId}</div>
-    <div style="margin-bottom:16px">
+    <div style="margin-bottom:12px">
       <span class="desk-neighbourhood nb-${desk.neighbourhood.replace(/\s+/g,'')}">${desk.neighbourhood}</span>
       <span style="margin-left:8px;font-size:12px;color:var(--text-secondary)">${desk.floor === 'ground' ? 'Ground' : 'First'} Floor</span>
     </div>
-    <div class="desk-features" style="margin-bottom:16px">
+    <div class="desk-features" style="margin-bottom:14px">
       ${desk.features.map(f => `<span class="feature-tag ft-${f}">${featureLabel(f)}</span>`).join('') || '<span style="color:var(--text-muted);font-size:12px">Standard desk</span>'}
     </div>
-    ${booking ? `
-      <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg);border-radius:var(--radius);margin-bottom:16px">
-        <div class="user-avatar" style="background:${avatarColor(booking.user.fullName)};width:36px;height:36px;font-size:14px">${initials(booking.user.fullName)}</div>
-        <div>
-          <div style="font-weight:600;font-size:14px">${booking.user.fullName}</div>
-          <div style="font-size:12px;color:var(--text-secondary)">${booking.user.role} · ${booking.user.team}</div>
-          <div style="font-size:12px;margin-top:2px"><span class="slot-badge slot-${booking.slot||'full'}">${slotLabel(booking.slot||'full')}</span></div>
-        </div>
-      </div>` : `
-      <div style="padding:12px;background:var(--primary-light);border-radius:var(--radius);margin-bottom:16px;color:var(--primary);font-size:13px;font-weight:500">
-        This desk is available on ${displayShortDate(date)}
-      </div>`}
-    <div class="modal-actions">
+    ${bookingRows || `<div style="padding:10px 12px;background:var(--primary-light);border-radius:var(--radius);margin-bottom:12px;color:var(--primary);font-size:13px;font-weight:500">Available on ${displayShortDate(date)}</div>`}
+    <div class="modal-actions" style="flex-wrap:wrap;gap:8px">
       <button class="btn btn-secondary" onclick="hideModal()">Close</button>
+      ${bookBtns}
     </div>
   `);
+}
+
+function fpCancelBooking(bookingId) {
+  deleteBooking(bookingId);
+  toast('Booking cancelled', 'info');
+  renderFloorPlan();
 }
 
 // ── Team Bookings ──────────────────────────────────────────────────────────
