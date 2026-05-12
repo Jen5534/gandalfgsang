@@ -69,8 +69,9 @@ http.createServer((req, res) => {
   let servePath = urlPath === '/' ? '/index.html' : urlPath;
   let filePath;
   if (servePath.startsWith('/data/')) {
-    // ../data/* refs in HTML resolve to /data/* — serve from project data dir
     filePath = path.join(DATA_DIR, servePath.slice('/data'.length));
+  } else if (servePath.startsWith('/floorplans/')) {
+    filePath = path.join(__dirname, servePath);
   } else {
     filePath = path.join(APP_DIR, servePath);
   }

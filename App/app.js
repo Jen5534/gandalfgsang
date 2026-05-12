@@ -1784,6 +1784,17 @@ async function loadWhosIn() {
 let floorPlanDate = null;
 let floorPlanFloor = 'ground';
 
+function loadFloorPlans() {
+  try {
+    const s = JSON.parse(localStorage.getItem('mdb_admin_settings') || 'null');
+    if (s?.floorPlans?.length) return s.floorPlans;
+  } catch { /* fall through */ }
+  return [
+    { id:'fp-ground', name:'Ground Floor', building:'London HQ', floorKey:'ground', assignedTeams:[], imageUrl:'/floorplans/ground.png' },
+    { id:'fp-first',  name:'First Floor',  building:'London HQ', floorKey:'first',  assignedTeams:[], imageUrl:'/floorplans/first.png'  },
+  ];
+}
+
 const DESK_COORDS = {
   // Ground floor — percentage positions {x, y} on the floor plan image
   'G-W1': { x: 7,  y: 12 }, 'G-W2': { x: 13, y: 12 },
@@ -1810,11 +1821,17 @@ function renderFloorPlan() {
   if (!floorPlanDate) floorPlanDate = today();
   const container = document.getElementById('view-floorplan');
 
+  const plans = loadFloorPlans();
+  if (!plans.find(p => p.floorKey === floorPlanFloor)) {
+    floorPlanFloor = plans[0]?.floorKey || 'ground';
+  }
+  const activePlan = plans.find(p => p.floorKey === floorPlanFloor) || plans[0];
+
   const bookings = getBookings({ date: floorPlanDate });
   const floorBookings = bookings.filter(b => b.desk?.floor === floorPlanFloor);
   const bookedDeskIds = new Set(floorBookings.map(b => b.deskId));
   const floorDesks = DESKS.filter(d => d.floor === floorPlanFloor);
-  const imgSrc = floorPlanFloor === 'ground' ? '../floorplans/ground.png' : '../floorplans/first.png';
+  const imgSrc = activePlan?.imageUrl || '';
 
   const markers = floorDesks.map(desk => {
     const coords = DESK_COORDS[desk.id];
@@ -1841,6 +1858,12 @@ function renderFloorPlan() {
       </div>`;
   }).join('');
 
+  const tabs = plans.map(p => `
+    <button class="floor-tab${floorPlanFloor === p.floorKey ? ' active' : ''}"
+            onclick="fpSetFloor('${p.floorKey}')">
+      ${p.name}${p.building !== (plans[0]?.building) ? ` <span style="font-size:10px;opacity:0.7">(${p.building})</span>` : ''}
+    </button>`).join('');
+
   container.innerHTML = `
     <div class="page-header">
       <h1>Floor Plan</h1>
@@ -1848,10 +1871,7 @@ function renderFloorPlan() {
     </div>
 
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
-      <div class="floor-tabs" style="margin-bottom:0">
-        <button class="floor-tab${floorPlanFloor==='ground'?' active':''}" onclick="fpSetFloor('ground')">Ground Floor</button>
-        <button class="floor-tab${floorPlanFloor==='first'?' active':''}" onclick="fpSetFloor('first')">First Floor</button>
-      </div>
+      <div class="floor-tabs" style="margin-bottom:0">${tabs}</div>
       <label style="font-size:13px;font-weight:500;color:var(--text-secondary)">Date:</label>
       <input type="date" value="${floorPlanDate}" onchange="fpSetDate(this.value)">
       <div style="display:flex;align-items:center;gap:14px;margin-left:auto;font-size:12px;color:var(--text-secondary)">
@@ -1862,7 +1882,7 @@ function renderFloorPlan() {
     </div>
 
     <div class="fp-wrap">
-      <img src="${imgSrc}" class="fp-img" alt="${floorPlanFloor} floor plan">
+      ${imgSrc ? `<img src="${imgSrc}" class="fp-img" alt="${activePlan.name}">` : `<div class="fp-img fp-img-placeholder"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.25"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg><div style="font-size:12px;color:var(--text-muted);margin-top:8px">No floor plan image — upload one in Admin</div></div>`}
       ${markers}
       <div style="position:absolute;bottom:8px;right:10px;font-size:11px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:4px">
         ${floorBookings.length} booked · ${floorDesks.length - bookedDeskIds.size} available

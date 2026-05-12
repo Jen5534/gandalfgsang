@@ -8,6 +8,7 @@ let overviewTeam  = '';
 let occupancyTeam = '';
 let noShowsTeam   = '';
 let nbEditId      = null;
+let fpEditId      = null;
 
 const DESKS = [
   { id: 'G-W1', floor: 'ground', neighbourhood: 'Window Bank',       features: ['window-seat', 'dual-monitor'] },
@@ -78,6 +79,10 @@ function defaultSettings() {
     },
     disabledDesks: [],
     buildings: ['London HQ'],
+    floorPlans: [
+      { id:'fp-ground', name:'Ground Floor', building:'London HQ', floorKey:'ground', assignedTeams:[], imageUrl:'/floorplans/ground.png' },
+      { id:'fp-first',  name:'First Floor',  building:'London HQ', floorKey:'first',  assignedTeams:[], imageUrl:'/floorplans/first.png'  },
+    ],
     neighbourhoods: [
       { id:'nb-window', name:'Window Bank',        building:'London HQ', color:'#0891b2',
         deskIds:['G-W1','G-W2','G-W3','G-W4','F-W1','F-W2','F-W3'], assignedTeams:[] },
@@ -103,6 +108,7 @@ function loadSettings() {
       autoBook:     { ...d.autoBook,     ...s.autoBook },
       disabledDesks:  s.disabledDesks  || [],
       buildings:      s.buildings      || d.buildings,
+      floorPlans:     s.floorPlans     || d.floorPlans,
       neighbourhoods: s.neighbourhoods || d.neighbourhoods,
     };
   } catch { return defaultSettings(); }
@@ -219,6 +225,7 @@ function navigate(view) {
     aianalysis:     renderAiAnalysis,
     rules:          renderRules,
     deskconfig:     renderDeskConfig,
+    floorplans:     renderFloorPlans,
     officesettings: renderOfficeSettings,
   };
   try {
@@ -1514,6 +1521,252 @@ function removeBuilding(name) {
   saveSettings(s);
   toast('Building removed');
   renderNeighbourhoods();
+}
+
+// ── Floor Plan Management ─────────────────────────────────────────────────
+
+function renderFloorPlans() {
+  const s        = loadSettings();
+  const plans    = s.floorPlans;
+  const buildings = s.buildings;
+  const allTeams  = [...new Set(USERS_DATA.map(u => u.team))].sort();
+
+  const formBlock = fpEditId !== null ? fpFormHtml(fpEditId, s, allTeams) : '';
+
+  const grouped = buildings.map(b => ({
+    building: b,
+    plans: plans.filter(p => p.building === b),
+  }));
+  const unassigned = plans.filter(p => !buildings.includes(p.building));
+  if (unassigned.length) grouped.push({ building: 'Other', plans: unassigned });
+
+  document.getElementById('view-floorplans').innerHTML = `
+    <div class="page-header">
+      <h1>Floor Plans</h1>
+      <p>Upload floor plan images for each building floor. Assign plans to teams so users see their relevant floors first.</p>
+    </div>
+
+    ${formBlock}
+
+    ${fpEditId === null ? `
+      <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:16px">
+        <button class="btn btn-primary btn-sm" onclick="startAddFp()">+ Add Floor Plan</button>
+      </div>` : ''}
+
+    ${grouped.map(g => g.plans.length === 0 ? '' : `
+      <div style="margin-bottom:28px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          <span style="font-size:14px;font-weight:700;color:var(--text)">${escHtml(g.building)}</span>
+          <span style="font-size:12px;color:var(--text-muted)">${g.plans.length} floor${g.plans.length !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="fp-admin-grid">
+          ${g.plans.map(p => fpCardHtml(p)).join('')}
+        </div>
+      </div>
+    `).join('')}
+
+    ${plans.length === 0 ? `
+      <div style="text-align:center;padding:64px 24px;color:var(--text-muted)">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.3;margin-bottom:12px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        <div style="font-size:14px;margin-top:4px">No floor plans yet</div>
+        <button class="btn btn-primary" onclick="startAddFp()" style="margin-top:16px">Upload your first floor plan</button>
+      </div>
+    ` : ''}
+  `;
+}
+
+function fpCardHtml(plan) {
+  const deskCount = DESKS.filter(d => d.floor === plan.floorKey).length;
+  const teamChips = plan.assignedTeams.length
+    ? plan.assignedTeams.map(t => `<span class="nb-team-chip">${escHtml(t)}</span>`).join('')
+    : `<span style="font-size:12px;color:var(--text-muted)">All teams</span>`;
+
+  return `
+    <div class="fp-admin-card ${fpEditId === plan.id ? 'fp-admin-card-editing' : ''}">
+      <div class="fp-admin-thumb">
+        ${plan.imageUrl
+          ? `<img src="${plan.imageUrl}" alt="${escHtml(plan.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+          : ''}
+        <div class="fp-admin-thumb-placeholder" style="${plan.imageUrl ? 'display:none' : ''}">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          <span>No image</span>
+        </div>
+      </div>
+      <div class="fp-admin-info">
+        <div class="fp-admin-name">${escHtml(plan.name)}</div>
+        <div class="fp-admin-meta">
+          <span>${escHtml(plan.building)}</span>
+          <span style="color:var(--border)">·</span>
+          <span>Key: <code>${escHtml(plan.floorKey)}</code></span>
+          <span style="color:var(--border)">·</span>
+          <span>${deskCount} desk${deskCount !== 1 ? 's' : ''}</span>
+        </div>
+        <div class="fp-admin-teams">${teamChips}</div>
+        <div class="fp-admin-actions">
+          <button class="btn-table" onclick="startEditFp(${JSON.stringify(plan.id)})">Edit</button>
+          <button class="btn-table btn-table-danger" onclick="deleteFp(${JSON.stringify(plan.id)})">Delete</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function fpFormHtml(editId, s, allTeams) {
+  const isNew = editId === 'new';
+  const plan = isNew
+    ? { name:'', building: s.buildings[0] || '', floorKey:'', assignedTeams:[], imageUrl:'' }
+    : (s.floorPlans.find(p => p.id === editId) || { name:'', building:'', floorKey:'', assignedTeams:[], imageUrl:'' });
+
+  return `
+    <div class="nb-form-panel" style="margin-bottom:20px">
+      <div class="nb-form-header">
+        <span style="font-size:15px;font-weight:600">${isNew ? 'Add Floor Plan' : 'Edit — ' + escHtml(plan.name)}</span>
+        <button class="agent-close-btn" onclick="cancelFpEdit()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="nb-form-body">
+
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label">Floor Plan Name</label>
+            <input type="text" class="field-input" id="fp-name" value="${escHtml(plan.name)}" placeholder="e.g. Ground Floor">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Building</label>
+            <select class="field-input" id="fp-building">
+              ${s.buildings.map(b => `<option value="${escHtml(b)}" ${plan.building === b ? 'selected' : ''}>${escHtml(b)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+
+        <div class="field-row">
+          <div class="field-group">
+            <label class="field-label">
+              Floor Key
+              <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;margin-left:4px">matches desk.floor in the data (e.g. ground, first, basement)</span>
+            </label>
+            <input type="text" class="field-input" id="fp-floorkey" value="${escHtml(plan.floorKey)}" placeholder="e.g. ground">
+          </div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">Floor Plan Image</label>
+          <div class="fp-upload-area" id="fp-upload-area" onclick="document.getElementById('fp-file-input').click()">
+            ${plan.imageUrl
+              ? `<img id="fp-preview-img" src="${plan.imageUrl}" style="max-height:160px;max-width:100%;border-radius:6px;object-fit:contain" alt="preview">`
+              : `<div id="fp-upload-placeholder" style="display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text-muted)">
+                  <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  <span style="font-size:13px">Click to upload image</span>
+                  <span style="font-size:11px">PNG, JPG, SVG — stored in-browser</span>
+                </div>`}
+          </div>
+          <input type="file" id="fp-file-input" accept="image/*" style="display:none" onchange="fpHandleImageUpload(this)">
+          <input type="hidden" id="fp-image-url" value="${escHtml(plan.imageUrl)}">
+          ${plan.imageUrl ? `<button type="button" style="margin-top:6px;font-size:12px;color:var(--danger);background:none;border:none;cursor:pointer;padding:0" onclick="fpClearImage()">Remove image</button>` : ''}
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">
+            Assign Teams
+            <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted);font-size:11px;margin-left:6px">Leave unchecked to show to all teams</span>
+          </label>
+          <div class="nb-checkbox-grid" id="fp-teams">
+            ${allTeams.map(t => `
+              <label class="nb-checkbox-item">
+                <input type="checkbox" class="fp-team-cb" value="${escHtml(t)}" ${plan.assignedTeams.includes(t) ? 'checked' : ''}>
+                <span>${escHtml(t)}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+
+      </div>
+      <div class="settings-save-bar">
+        <button class="btn btn-secondary" onclick="cancelFpEdit()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveFp(${JSON.stringify(editId)})">${isNew ? 'Add Floor Plan' : 'Save Changes'}</button>
+      </div>
+    </div>
+  `;
+}
+
+function startAddFp() {
+  fpEditId = 'new';
+  renderFloorPlans();
+  setTimeout(() => document.querySelector('.nb-form-panel')?.scrollIntoView({ behavior:'smooth', block:'start' }), 50);
+}
+
+function startEditFp(id) {
+  fpEditId = id;
+  renderFloorPlans();
+  setTimeout(() => document.querySelector('.nb-form-panel')?.scrollIntoView({ behavior:'smooth', block:'start' }), 50);
+}
+
+function cancelFpEdit() {
+  fpEditId = null;
+  renderFloorPlans();
+}
+
+function fpHandleImageUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    document.getElementById('fp-image-url').value = dataUrl;
+    const area = document.getElementById('fp-upload-area');
+    area.innerHTML = `<img id="fp-preview-img" src="${dataUrl}" style="max-height:160px;max-width:100%;border-radius:6px;object-fit:contain" alt="preview">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+function fpClearImage() {
+  document.getElementById('fp-image-url').value = '';
+  const area = document.getElementById('fp-upload-area');
+  area.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;gap:8px;color:var(--text-muted)">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <span style="font-size:13px">Click to upload image</span>
+    <span style="font-size:11px">PNG, JPG, SVG — stored in-browser</span>
+  </div>`;
+}
+
+function saveFp(editId) {
+  const name     = document.getElementById('fp-name').value.trim();
+  const building = document.getElementById('fp-building').value;
+  const floorKey = document.getElementById('fp-floorkey').value.trim();
+  const imageUrl = document.getElementById('fp-image-url').value;
+  const assignedTeams = [...document.querySelectorAll('.fp-team-cb:checked')].map(cb => cb.value);
+
+  if (!name)     { toast('Please enter a floor plan name', 'error'); return; }
+  if (!floorKey) { toast('Please enter a floor key', 'error'); return; }
+
+  const s = loadSettings();
+
+  if (editId === 'new') {
+    s.floorPlans.push({ id: 'fp-' + Date.now(), name, building, floorKey, assignedTeams, imageUrl });
+    toast('Floor plan added');
+  } else {
+    const i = s.floorPlans.findIndex(p => p.id === editId);
+    if (i !== -1) s.floorPlans[i] = { ...s.floorPlans[i], name, building, floorKey, assignedTeams, imageUrl };
+    toast('Floor plan updated');
+  }
+
+  saveSettings(s);
+  fpEditId = null;
+  renderFloorPlans();
+}
+
+function deleteFp(id) {
+  const s    = loadSettings();
+  const plan = s.floorPlans.find(p => p.id === id);
+  if (!plan) return;
+  if (!confirm(`Delete floor plan "${plan.name}"? This does not affect existing bookings.`)) return;
+  s.floorPlans = s.floorPlans.filter(p => p.id !== id);
+  saveSettings(s);
+  if (fpEditId === id) fpEditId = null;
+  toast('Floor plan deleted');
+  renderFloorPlans();
 }
 
 // ── Feedback (admin) ──────────────────────────────────────────────────────
