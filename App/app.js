@@ -396,6 +396,7 @@ function loginAs(user) {
   navigate('dashboard');
   requestNotificationPermission();
   startProximityWatch();
+  setTimeout(checkAnchorDayNotifications, 1200);
 }
 
 async function ssoLogin() {
@@ -420,6 +421,7 @@ async function ssoLogin() {
 function logout() {
   stopProximityWatch();
   autoBookTriggeredThisSession = false;
+  anchorNotifFiredThisSession  = false;
   currentUser = null;
   document.getElementById('app').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
@@ -916,6 +918,34 @@ async function renderDashboard() {
     </div>`;
   })();
 
+  const unbookedAnchorDays = getUnbookedAnchorDays(14);
+
+  const anchorAlertCard = unbookedAnchorDays.length === 0 ? '' : (() => {
+    const rows = unbookedAnchorDays.map(d => {
+      const label = parseDate(d).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
+      return `
+        <div class="anchor-alert-row">
+          <div class="anchor-alert-date">
+            <span class="anchor-alert-weekday">${parseDate(d).toLocaleDateString('en-GB',{weekday:'long'})}</span>
+            <span class="anchor-alert-dmy">${parseDate(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
+          </div>
+          <span class="pill pill-amber" style="font-size:11px">Anchor day</span>
+          <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="navigateToBookDate('${d}')">Book desk</button>
+        </div>`;
+    }).join('');
+    return `
+      <div class="card one-col anchor-alert-card">
+        <div class="card-header">
+          <span class="card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:#D97706;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            Unbooked Anchor Days
+          </span>
+          <span class="pill pill-amber">${unbookedAnchorDays.length} upcoming</span>
+        </div>
+        <div class="card-body" style="padding:0 16px 4px">${rows}</div>
+      </div>`;
+  })();
+
   container.innerHTML = `
     <div class="page-header">
       <h1>Good ${greetingTime()}, ${currentUser.fullName.split(' ')[0]}</h1>
@@ -924,6 +954,7 @@ async function renderDashboard() {
 
     ${checkinBanner}
     ${walkInBanner}
+    ${anchorAlertCard}
 
     <div class="stats-row">
       <div class="stat-card">
@@ -2828,7 +2859,8 @@ function doSubmitFeedback() {
 
 const AUTO_BOOK_DISMISSED_KEY = 'mdb_auto_book_dismissed';
 let proximityWatchId = null;
-let autoBookTriggeredThisSession = false;
+let autoBookTriggeredThisSession  = false;
+let anchorNotifFiredThisSession   = false;
 
 function hasBookingToday(userId) {
   return getBookings({ userId, date: today() }).length > 0;
@@ -2985,6 +3017,47 @@ function stopProximityWatch() {
 }
 
 // ── Push notifications ─────────────────────────────────────────────────────
+
+function getUnbookedAnchorDays(lookaheadDays = 7) {
+  const bookedDates = new Set(
+    getBookings({ userId: currentUser.id, upcoming: true }).map(b => b.date)
+  );
+  const result = [];
+  for (let i = 1; i <= lookaheadDays; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) continue;
+    const dateStr = d.toISOString().slice(0, 10);
+    if (isAnchorDay(currentUser, dateStr) && !bookedDates.has(dateStr)) {
+      result.push(dateStr);
+    }
+  }
+  return result;
+}
+
+function checkAnchorDayNotifications() {
+  if (anchorNotifFiredThisSession) return;
+  const unbooked = getUnbookedAnchorDays(14);
+  if (unbooked.length === 0) return;
+  anchorNotifFiredThisSession = true;
+  const dayList = unbooked.slice(0, 3).map(d =>
+    parseDate(d).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+  ).join(', ');
+  const extra = unbooked.length > 3 ? ` +${unbooked.length - 3} more` : '';
+  sendPerchNotification(
+    `${unbooked.length} anchor day${unbooked.length > 1 ? 's' : ''} without a desk booked`,
+    `Book your desk for: ${dayList}${extra}`
+  );
+}
+
+function navigateToBookDate(dateStr) {
+  navigate('book');
+  requestAnimationFrame(() => {
+    const input = document.querySelector('#view-book input[type=date]');
+    if (input) { input.value = dateStr; input.dispatchEvent(new Event('change')); }
+  });
+}
 
 function requestNotificationPermission() {
   if ('Notification' in window && Notification.permission === 'default') {

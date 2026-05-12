@@ -1666,6 +1666,35 @@ input[type="date"]:focus { outline: none; border-color: var(--primary); }
 }
 .agent-send-btn:hover { background: var(--primary-dark); }
 
+/* ── Anchor Day Alert Card ──────────────────────────────────────────── */
+.anchor-alert-card { border-color: #FDE68A; background: #FFFBEB; }
+.anchor-alert-card .card-header { border-bottom-color: #FDE68A; }
+.anchor-alert-card .card-title  { color: #92400E; }
+
+.anchor-alert-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #FDE68A;
+}
+.anchor-alert-row:last-child { border-bottom: none; }
+
+.anchor-alert-date {
+  display: flex;
+  flex-direction: column;
+  min-width: 90px;
+}
+.anchor-alert-weekday {
+  font-size: 13px;
+  font-weight: 600;
+  color: #92400E;
+}
+.anchor-alert-dmy {
+  font-size: 11px;
+  color: #B45309;
+}
+
 /* ── Feedback ───────────────────────────────────────────────────────── */
 .feedback-type-row {
   display: flex;
