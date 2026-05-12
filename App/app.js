@@ -112,8 +112,8 @@ function profileSetPref(key, value) {
   prefs[key] = value;
   saveProfilePrefs(currentUser.id, prefs);
   if (key === 'darkMode') {
-    const isDark = document.documentElement.classList.contains('dark-mode');
-    if (value !== isDark) toggleTheme();
+    const isDark = document.documentElement.dataset.theme === 'dark';
+    if (value !== isDark) cycleTheme();
   }
 }
 
@@ -4531,7 +4531,7 @@ function renderProfileView() {
   if (!container) return;
 
   const prefs  = loadProfilePrefs(currentUser.id);
-  const isDark = document.documentElement.classList.contains('dark-mode');
+  const isDark = document.documentElement.dataset.theme === 'dark';
 
   const AREAS = ['', 'Window Bank', 'Quiet Zone', 'Core Desk Area', 'Collaboration Zone'];
   const areaOptions = AREAS.map(a =>
@@ -4622,28 +4622,41 @@ function renderProfileView() {
   `;
 }
 
-function toggleTheme() {
-  const isDark = document.documentElement.classList.toggle('dark-mode');
-  localStorage.setItem('perch_theme', isDark ? 'dark' : 'light');
+const THEMES = ['light', 'dark', 'blue', 'purple', 'warm', 'contrast'];
+const THEME_LABELS = { light: '☀️ Light', dark: '🌙 Dark', blue: '💙 Blue', purple: '💜 Purple', warm: '🟠 Warm', contrast: '⬛ Contrast' };
+
+function cycleTheme() {
+  const current = document.documentElement.dataset.theme || 'light';
+  const next = THEMES[(THEMES.indexOf(current) + 1) % THEMES.length];
+  document.documentElement.dataset.theme = next;
+  document.documentElement.classList.remove('dark-mode');
+  localStorage.setItem('perch_theme', next);
   const btn = document.getElementById('a11y-theme-btn');
-  if (btn) btn.title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+  if (btn) {
+    const lbl = btn.querySelector('.a11y-theme-label');
+    if (lbl) lbl.textContent = THEME_LABELS[next] || next;
+  }
 }
 
 function cycleFontSize() {
-  const sizes = ['normal', 'large', 'larger'];
+  const sizes = ['xs', 'normal', 'large', 'larger', 'largest'];
+  const labels = { xs: 'A−', normal: 'A', large: 'A+', larger: 'A++', largest: 'A+++' };
   const current = document.documentElement.dataset.fontSize || 'normal';
   const next = sizes[(sizes.indexOf(current) + 1) % sizes.length];
   document.documentElement.dataset.fontSize = next;
   localStorage.setItem('perch_fontsize', next);
   const btn = document.getElementById('a11y-font-btn');
-  if (btn) btn.title = `Font size: ${next}`;
-  const labels = { normal: 'A', large: 'A+', larger: 'A++' };
-  if (btn) btn.querySelector('.a11y-font-label').textContent = labels[next];
+  if (btn) {
+    btn.title = `Font size: ${next}`;
+    const lbl = btn.querySelector('.a11y-font-label');
+    if (lbl) lbl.textContent = labels[next];
+  }
 }
 
 function initAccessibility() {
-  const theme = localStorage.getItem('perch_theme');
-  if (theme === 'dark') document.documentElement.classList.add('dark-mode');
+  const stored = localStorage.getItem('perch_theme') || 'light';
+  const theme = THEMES.includes(stored) ? stored : (stored === 'dark' ? 'dark' : 'light');
+  document.documentElement.dataset.theme = theme;
   const fontSize = localStorage.getItem('perch_fontsize');
   if (fontSize) document.documentElement.dataset.fontSize = fontSize;
 }
