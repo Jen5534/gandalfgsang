@@ -1,0 +1,12 @@
+● Perch Demo Script — Desk Allocation Flow
+
+  Meet Sarah. It's Sunday evening and Perch is already working in the background. Earlier in the week Sarah used the Declare
+  screen to mark Monday and Wednesday as office days. Overnight, the allocation engine picks that up, checks who else from her
+  team is coming in, and quietly assigns her a desk — one that matches her profile preferences for a dual monitor and a spot
+  near the window bank. By the time she wakes up Monday morning, she opens Perch on her phone and sees her allocation waiting on
+   the My Allocation screen: Desk G-W1, Ground Floor, confirmed for today. One tap to confirm it, and it's locked in. No
+  hunting, no first-come-first-served scramble.
+
+  She arrives at the office, glances at the Floor Plan to orient herself, and can see exactly who else is in and where they're
+  sitting. Her colleague checks Who's In to decide whether it's worth making the commute — half the team is already there, so
+  it's a yes. That's Perch: the desk finds the person, not the other way around.
