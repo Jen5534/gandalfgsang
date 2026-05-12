@@ -2978,12 +2978,12 @@ function renderFeedback() {
 
           <div style="margin-bottom:14px">
             <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);display:block;margin-bottom:6px">Subject</label>
-            <input type="text" id="fb-subject" class="field-input" placeholder="Brief summary…" maxlength="80">
+            <input type="text" id="fb-subject" class="fb-input" placeholder="Brief summary…" maxlength="80">
           </div>
 
           <div style="margin-bottom:18px">
             <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);display:block;margin-bottom:6px">Details</label>
-            <textarea id="fb-message" class="field-input" rows="5" placeholder="Tell us more…" style="resize:vertical;min-height:100px"></textarea>
+            <textarea id="fb-message" class="fb-input" rows="5" placeholder="Tell us more…"></textarea>
           </div>
 
           <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
