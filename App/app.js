@@ -932,8 +932,6 @@ async function renderDashboard() {
     </div>`;
   })();
 
-  const unbookedAnchorDays = getUnbookedAnchorDays(14);
-
   // ── New allocation/declaration dashboard cards ─────────────────────────
   const myDecls = loadDeclarations().filter(d => {
     const mon = weekMonday(today());
@@ -976,30 +974,6 @@ async function renderDashboard() {
     </div>` : '';
   // ── End new cards ───────────────────────────────────────────────────────
 
-  const anchorAlertCard = unbookedAnchorDays.length === 0 ? '' : (() => {
-    const rows = unbookedAnchorDays.map(d => {
-      const label = parseDate(d).toLocaleDateString('en-GB', { weekday:'short', day:'numeric', month:'short' });
-      return `
-        <div class="anchor-alert-row">
-          <div class="anchor-alert-date">
-            <span class="anchor-alert-weekday">${parseDate(d).toLocaleDateString('en-GB',{weekday:'long'})}</span>
-            <span class="anchor-alert-dmy">${parseDate(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
-          </div>
-          <span class="pill pill-amber" style="font-size:11px;margin-left:auto">Anchor day</span>
-        </div>`;
-    }).join('');
-    return `
-      <div class="card one-col anchor-alert-card">
-        <div class="card-header">
-          <span class="card-title">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:#D97706;vertical-align:-2px;margin-right:4px"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            Unbooked Anchor Days
-          </span>
-          <span class="pill pill-amber">${unbookedAnchorDays.length} upcoming</span>
-        </div>
-        <div class="card-body" style="padding:0 16px 4px">${rows}</div>
-      </div>`;
-  })();
 
   container.innerHTML = `
     <div class="page-header">
@@ -1009,7 +983,6 @@ async function renderDashboard() {
 
     ${checkinBanner}
     ${walkInBanner}
-    ${anchorAlertCard}
     ${declCard}
     ${allocCard}
     ${noShowCard}
