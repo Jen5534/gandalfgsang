@@ -560,7 +560,8 @@ async function checkInBooking(bookingId) {
 const DAY_OCCUPANCY = { monday:0.78, tuesday:0.48, wednesday:0.72, thursday:0.52, friday:0.38 };
 const NB_PRESSURE   = { 'Window Bank':0.06, 'Quiet Zone':0.04, 'Core Desk Area':0, 'Collaboration Zone':-0.04 };
 // Fraction of daily occupancy physically present at each arrival window
-const ARRIVAL_FACTOR = { '7am': 0.05, '8am': 0.10, '9am': 0.50, '10am': 1.0 };
+const ARRIVAL_FACTOR = { '7am': 0.05, '8am': 0.10, '9am': 0.50, '10am': 1.0, '11am': 1.0 };
+const ARRIVAL_TIMES  = ['7am','8am','9am','10am','11am'];
 
 function calculateConfidence(dateStr) {
   const day          = dayKey(dateStr);
@@ -603,10 +604,11 @@ function calculateConfidence(dateStr) {
   const reasons = [];
 
   // Arrival time reason — shown first as it's a direct user input
-  if (arrivalKey === '7am')  reasons.push('Arriving before 7am — you\'ll have the office almost to yourself');
+  if (arrivalKey === '7am')       reasons.push('Arriving by 7am — you\'ll have the office almost to yourself');
   else if (arrivalKey === '8am')  reasons.push('Arriving by 8am — well ahead of the peak rush');
   else if (arrivalKey === '9am')  reasons.push('Arriving by 9am — busy period, more competition for desks');
-  else if (arrivalKey === '10am') reasons.push('Arriving after 10am — most colleagues settled in by then');
+  else if (arrivalKey === '10am') reasons.push('Arriving by 10am — most colleagues settled in by then');
+  else if (arrivalKey === '11am') reasons.push('Arriving by 11am — office is at full capacity by this time');
 
   if (isAnchorDay(currentUser, dateStr)) reasons.push(`${dayName} is your anchor day — higher turnout expected`);
   if (baseOcc >= 0.70) reasons.push(`${dayName}s are typically a busy office day`);
@@ -659,7 +661,7 @@ function renderConfidenceWidget(dateStr) {
       <div class="card-header">
         <span class="card-title">Arrival Confidence${isToday?' — Today':' — '+displayShortDate(dateStr)}</span>
         <div style="display:flex;align-items:center;gap:8px">
-          ${c.arrivalKey ? `<span style="font-size:11.5px;color:var(--text-muted)">arriving ${{  '7am':'by 7am','8am':'by 8am','9am':'by 9am','10am':'after 10am'}[c.arrivalKey]}</span>` : ''}
+          ${c.arrivalKey ? `<span style="font-size:11.5px;color:var(--text-muted)">arriving by ${c.arrivalKey}</span>` : ''}
           <span class="confidence-pill" style="background:${c.colour}22;color:${c.colour};border:1px solid ${c.colour}44">${c.label}</span>
         </div>
       </div>
@@ -862,6 +864,15 @@ function toggleEnvPref(key, value) {
   renderDashboard();
 }
 
+function setArrivalTime(value) {
+  const p = loadEnvPrefs();
+  if (value) p.arrival = value; else delete p.arrival;
+  saveEnvPrefs(p);
+  const lbl = document.getElementById('arrival-slider-label');
+  if (lbl) lbl.textContent = value ? value : 'Any time';
+  renderDashboard();
+}
+
 let _pendingEnvTags = new Set();
 
 function toggleEnvRateTag(tag) {
@@ -902,11 +913,13 @@ function renderComfortProfile() {
   const p = loadEnvPrefs();
   const hasPrefs = p.temp || p.light || p.noise || p.arrival;
   const rows = [
-    { key: 'arrival', label: 'Arrival',     opts: [['7am','🌅 By 7am'],['8am','🕗 By 8am'],['9am','🕘 By 9am'],['10am','🕙 10am+']], noAny: true },
-    { key: 'temp',    label: 'Temperature', opts: [['cool','🌬️ Cool'],['warm','🌡️ Warm']] },
-    { key: 'light',   label: 'Light',       opts: [['bright','☀️ Bright'],['dim','🔅 Low light']] },
-    { key: 'noise',   label: 'Noise',       opts: [['quiet','🔇 Quiet'],['lively','🗣️ Lively']] },
+    { key: 'temp',  label: 'Temperature', opts: [['cool','🌬️ Cool'],['warm','🌡️ Warm']] },
+    { key: 'light', label: 'Light',       opts: [['bright','☀️ Bright'],['dim','🔅 Low light']] },
+    { key: 'noise', label: 'Noise',       opts: [['quiet','🔇 Quiet'],['lively','🗣️ Lively']] },
   ];
+  const arrivalIdx = p.arrival ? ARRIVAL_TIMES.indexOf(p.arrival) : -1;
+  const sliderVal  = arrivalIdx >= 0 ? arrivalIdx : '';
+  const sliderLabel = p.arrival || 'Any time';
   return `<div class="card one-col">
     <div class="card-header">
       <span class="card-title">Comfort Profile</span>
@@ -915,12 +928,28 @@ function renderComfortProfile() {
     <div class="card-body" style="padding:14px 20px">
       <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Your preferences shape desk recommendations — no forms, just a tap.</p>
       <div style="display:flex;flex-direction:column;gap:10px">
-        ${rows.map(({ key, label, opts, noAny }) => `
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+          <div style="width:88px;font-size:12.5px;font-weight:600;color:var(--text-secondary);flex-shrink:0">Arrival</div>
+          <div class="arrival-slider-wrap">
+            <div class="arrival-slider-ticks">
+              ${ARRIVAL_TIMES.map(t => `<span>${t}</span>`).join('')}
+            </div>
+            <input type="range" class="arrival-slider" min="0" max="${ARRIVAL_TIMES.length - 1}" step="1"
+              value="${sliderVal !== '' ? sliderVal : 2}"
+              oninput="setArrivalTime(ARRIVAL_TIMES[this.value])"
+              ${sliderVal === '' ? '' : ''}>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px">
+              <span id="arrival-slider-label" style="font-size:13px;font-weight:600;color:var(--primary)">${sliderLabel}</span>
+              ${p.arrival ? `<button class="env-pref-btn" style="font-size:11px;padding:2px 8px" onclick="setArrivalTime('')">Clear</button>` : ''}
+            </div>
+          </div>
+        </div>
+        ${rows.map(({ key, label, opts }) => `
           <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
             <div style="width:88px;font-size:12.5px;font-weight:600;color:var(--text-secondary);flex-shrink:0">${label}</div>
             <div style="display:flex;gap:6px;flex-wrap:wrap">
               ${opts.map(([val, lbl]) => `<button class="env-pref-btn${p[key]===val?' active':''}" onclick="toggleEnvPref('${key}','${val}')">${lbl}</button>`).join('')}
-              ${noAny ? '' : `<button class="env-pref-btn${!p[key]?' active':''}" onclick="toggleEnvPref('${key}','')">Any</button>`}
+              <button class="env-pref-btn${!p[key]?' active':''}" onclick="toggleEnvPref('${key}','')">Any</button>
             </div>
           </div>`).join('')}
       </div>
