@@ -116,22 +116,17 @@
     .title-badges { display: flex; gap: 8px; margin-top: 20px; flex-wrap: wrap; }
     .title-badge  { padding: 5px 14px; border: 1px solid rgba(255,255,255,0.13); border-radius: 99px; font-size: 11px; color: rgba(255,255,255,0.5); }
 
-    .url-chip { display: inline-flex; align-items: center; gap: 10px; padding: 11px 20px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; font-family: 'Courier New', monospace; font-size: 16px; color: var(--green-glow); margin-top: 12px; }
     .big-cta  { font-size: clamp(30px, 4.5vw, 54px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.15; }
-    .gh-link  { display: inline-flex; align-items: center; gap: 8px; margin-top: 16px; padding: 9px 16px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; font-size: 12px; color: var(--text); text-decoration: none; }
-    .gh-link:hover { background: rgba(255,255,255,0.12); }
 
     /* ── Animation system ──────────────────────────────────────────────── */
     @keyframes fadeInUp   { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
     @keyframes fadeInLeft { from { opacity:0; transform:translateX(-16px); } to { opacity:1; transform:translateX(0); } }
     @keyframes spinIn     { from { opacity:0; transform:scale(0.7) rotate(-8deg); } to { opacity:1; transform:scale(1) rotate(0); } }
-    @keyframes wavePulse  { 0%,100% { transform:scaleY(0.2); } 50% { transform:scaleY(1); } }
-
-    .feat,.sec-item,.rm-item,.stat,.arch-layer,.compare-col,.card-glass,.card-challenge,.card-answer,.url-chip,.gh-link { opacity:0; }
+    @keyframes gandalf-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-14px)} }
+    .feat,.sec-item,.rm-item,.stat,.arch-layer,.compare-col,.card-glass,.card-challenge,.card-answer { opacity:0; }
     .slide.active .feat,.slide.active .sec-item,.slide.active .rm-item,.slide.active .stat,
     .slide.active .arch-layer,.slide.active .compare-col,.slide.active .card-glass,
-    .slide.active .card-challenge,.slide.active .card-answer,
-    .slide.active .url-chip,.slide.active .gh-link { animation: fadeInUp 0.45s ease both; }
+    .slide.active .card-challenge,.slide.active .card-answer { animation: fadeInUp 0.45s ease both; }
 
     .title-logo,.title-main,.title-sub,.title-badges { opacity:0; }
     .slide.active .title-logo   { animation: spinIn   0.55s 0.1s  ease both; }
@@ -170,12 +165,7 @@
 
     #ctrl-slide-title { font-size:12px; color:rgba(255,255,255,0.45); max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-    #ctrl-waveform { display:flex; gap:3px; align-items:center; height:22px; padding:0 4px; }
-    .wave-bar { width:3px; height:18px; background:var(--green-glow); border-radius:2px; transform-origin:bottom; transform:scaleY(0.2); opacity:0.3; transition:opacity 0.3s; }
-    #ctrl-waveform.speaking .wave-bar { opacity:1; animation:wavePulse 0.7s ease infinite; }
-    .wave-bar:nth-child(1){animation-delay:0s}.wave-bar:nth-child(2){animation-delay:0.14s}.wave-bar:nth-child(3){animation-delay:0.28s}.wave-bar:nth-child(4){animation-delay:0.42s}.wave-bar:nth-child(5){animation-delay:0.56s}
-
-    .ctrl-speed-grp { display:flex; gap:3px; }
+.ctrl-speed-grp { display:flex; gap:3px; }
     .ctrl-speed-btn { padding:4px 8px; border-radius:6px; font-size:10px; font-weight:700; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.09); color:rgba(255,255,255,0.35); cursor:pointer; transition:all 0.15s; }
     .ctrl-speed-btn.active { background:rgba(0,179,126,0.2); border-color:rgba(0,179,126,0.4); color:var(--green-glow); }
     .ctrl-speed-btn:hover:not(.active) { background:rgba(255,255,255,0.1); color:rgba(255,255,255,0.7); }
@@ -184,8 +174,6 @@
     .ctrl-toggle.active { background:rgba(0,179,126,0.15); border-color:rgba(0,179,126,0.35); color:var(--green-glow); }
     .ctrl-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
 
-    #narr-toast { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); max-width:680px; width:90%; background:rgba(8,14,26,0.92); backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:11px 18px; font-size:12.5px; color:rgba(255,255,255,0.5); line-height:1.6; text-align:center; z-index:250; pointer-events:none; opacity:0; transition:opacity 0.3s ease; }
-    #narr-toast.visible { opacity:1; }
     #nav-hint { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); font-size:10px; color:rgba(255,255,255,0.13); z-index:200; letter-spacing:0.12em; text-transform:uppercase; pointer-events:none; }
   </style>
 </head>
@@ -193,7 +181,6 @@
 
 <div id="progress"><div id="prog-fill"></div></div>
 <div id="nav-hint">← → Space · Click to advance</div>
-<div id="narr-toast"></div>
 
 <div id="deck">
 
@@ -205,345 +192,148 @@
     <div class="title-sub">Smart Desk Booking for the Hybrid Era — built for the people, run for the business.</div>
     <div class="title-badges">
       <span class="title-badge">Hackathon 2025</span>
-      <span class="title-badge">50 users · 3 sites · 6 teams</span>
+      <span class="title-badge">Gandalf's Gang</span>
       <span class="title-badge">Powered by Claude AI</span>
       <span class="title-badge">Enterprise-ready architecture</span>
     </div>
   </div>
 </section>
 
-<!-- ── 2. THE PROBLEM ────────────────────────────────────────────────────── -->
+<!-- ── 2. THE CHALLENGE ───────────────────────────────────────────────────── -->
 <section class="slide dark" id="s2" data-title="The Challenge">
   <div class="inner">
-    <div class="eyebrow">The Challenge</div>
-    <div class="h2">Hybrid working creates <span class="accent">invisible waste</span> and daily friction</div>
+    <div class="eyebrow">LaunchPad '26 &nbsp;·&nbsp; Edition 01</div>
+    <div class="h2">Rethink how people <span class="accent">book a desk.</span></div>
     <div class="bar"></div>
-    <div class="cols-4" style="margin-bottom:16px">
-      <div class="card-glass stat"><div class="stat-n">68%</div><div class="stat-l">of office space underutilised post-pandemic</div></div>
-      <div class="card-glass stat"><div class="stat-n">3.2</div><div class="stat-l">average days per week employees are in the office</div></div>
-      <div class="card-glass stat"><div class="stat-n">£8.4k</div><div class="stat-l">wasted per year per empty desk in central London</div></div>
-      <div class="card-glass stat"><div class="stat-n">12 min</div><div class="stat-l">lost per day per person searching for a suitable desk</div></div>
-    </div>
-    <div class="card-glass" style="border-color:rgba(0,179,126,0.2);padding:16px 22px">
-      <div style="font-size:14px;color:#CBD5E1;line-height:1.7;font-style:italic">
-        "The booking experience must be so smooth it becomes <strong style="color:var(--green-glow)">invisible</strong> — and the data it generates must make the business smarter."
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── 3. SEVEN CHALLENGES ───────────────────────────────────────────────── -->
-<section class="slide dark" id="s3" data-title="Seven Design Challenges">
-  <div class="inner">
-    <div class="eyebrow">Our Design Framework</div>
-    <div class="h2">Seven challenges we set out to <span class="accent">solve completely</span></div>
-    <div class="bar"></div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:9px">
-      <div class="card-glass" style="padding:14px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-          <span class="sq-badge" style="background:rgba(0,179,126,0.15);color:var(--green-glow)">SQ-01</span>
-          <span style="font-size:12px;font-weight:700;color:#F1F5F9">First-Time Fit</span>
+<div style="display:grid;grid-template-columns:2fr 3fr;gap:22px;align-items:stretch">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="card-answer" style="padding:14px">
+          <div style="font-size:10px;font-weight:800;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">Prompt 01</div>
+          <div style="font-size:12px;font-weight:700;color:#F1F5F9;margin-bottom:5px">Finding &amp; Booking</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5">How does someone know which desks are actually available before they decide to come in?</div>
         </div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5">Right desk on the first try — not through trial and error</div>
-      </div>
-      <div class="card-glass" style="padding:14px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-          <span class="sq-badge" style="background:rgba(59,130,246,0.15);color:#60A5FA">SQ-02</span>
-          <span style="font-size:12px;font-weight:700;color:#F1F5F9">Arrival Confidence</span>
+        <div class="card-answer" style="padding:14px">
+          <div style="font-size:10px;font-weight:800;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">Prompt 05</div>
+          <div style="font-size:12px;font-weight:700;color:#F1F5F9;margin-bottom:5px">Admin &amp; Policy</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5">How should leadership see utilisation without vendor-supplied reporting?</div>
         </div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5">Certainty before travelling — signal, not just seat count</div>
-      </div>
-      <div class="card-glass" style="padding:14px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-          <span class="sq-badge" style="background:rgba(52,211,153,0.12);color:#6EE7B7">SQ-03</span>
-          <span style="font-size:12px;font-weight:700;color:#F1F5F9">Environmental</span>
-        </div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5">Temperature, light, noise — matched to person without friction</div>
-      </div>
-      <div class="card-glass" style="padding:14px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-          <span class="sq-badge" style="background:rgba(245,158,11,0.15);color:#FBBF24">SQ-04</span>
-          <span style="font-size:12px;font-weight:700;color:#F1F5F9">Friction-Free Change</span>
-        </div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5">Cancel, shorten, swap, or hand over in seconds</div>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px">
-      <div class="card-glass" style="padding:14px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-          <span class="sq-badge" style="background:rgba(167,139,250,0.15);color:#A78BFA">SQ-05</span>
-          <span style="font-size:12px;font-weight:700;color:#F1F5F9">Predictable Hot Desking</span>
-        </div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5">Reliable, familiar — without locking desks down permanently</div>
-      </div>
-      <div class="card-glass" style="padding:14px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-          <span class="sq-badge" style="background:rgba(239,68,68,0.12);color:#F87171">SQ-06</span>
-          <span style="font-size:12px;font-weight:700;color:#F1F5F9">Behavioural Nudges</span>
-        </div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5">Shape better habits gently — without policing people</div>
-      </div>
-      <div class="card-glass" style="padding:14px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px">
-          <span class="sq-badge" style="background:rgba(34,211,238,0.12);color:#67E8F9">SQ-07</span>
-          <span style="font-size:12px;font-weight:700;color:#F1F5F9">Adaptive Booking Rules</span>
-        </div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5">Rules that flex for the use case — never restrict the everyday booker</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── 4. SQ-01 FIRST-TIME FIT ────────────────────────────────────────────── -->
-<section class="slide dark" id="s4" data-title="SQ-01: First-Time Fit">
-  <div class="inner">
-    <div class="eyebrow">SQ-01 &nbsp;·&nbsp; Smart Booking</div>
-    <div class="h2">Right desk, <span class="accent">first try</span> — not through trial and error</div>
-    <div class="bar"></div>
-    <div class="cols-2" style="gap:22px;align-items:start">
-      <div>
-        <div class="card-challenge" style="margin-bottom:11px">
-          <div style="font-size:10px;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">The Challenge</div>
-          <div style="font-size:12.5px;color:#CBD5E1;line-height:1.65;font-style:italic">"Help colleagues find a desk that genuinely matches their needs on the first try. Go beyond equipment filters — think about the signals that make a desk right for the task, the person, or the day."</div>
-          <ul class="qlist" style="margin-top:10px">
-            <li>What makes a desk the right one for a given colleague or task?</li>
-            <li>How do we surface the right desks without burying people in choice?</li>
-            <li>Should past bookings inform future suggestions — and how visibly?</li>
-          </ul>
+        <div class="card-answer" style="padding:14px">
+          <div style="font-size:10px;font-weight:800;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">Prompt 06</div>
+          <div style="font-size:12px;font-weight:700;color:#F1F5F9;margin-bottom:5px">Accessibility</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5">What does a booking flow look like that works for everyone?</div>
         </div>
       </div>
-      <div>
-        <div class="card-answer" style="margin-bottom:10px">
-          <div style="font-size:10px;font-weight:800;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Perch's Answer</div>
-          <ul class="blist">
-            <li><strong style="color:#F1F5F9">Multi-signal scoring</strong> — team proximity, neighbourhood fit, desk equipment, time of day, and day-of-week all feed a single confidence score per desk</li>
-            <li><strong style="color:#F1F5F9">One great recommendation</strong>, not fifty options — the top-scoring desk is shown prominently with a ranked shortlist behind it</li>
-            <li><strong style="color:#F1F5F9">Booking history as preference</strong> — desks you've used before score higher automatically, surfaced as "your usual" without you having to ask</li>
-            <li><strong style="color:#F1F5F9">Silent preference matching</strong> — standing desk, accessibility, dual monitor preferences are set once in your profile and applied every time, invisibly</li>
-            <li><strong style="color:#F1F5F9">Transparent score</strong> — the recommendation shows why: "Teammates nearby · Your usual floor · Window seat"</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── 5. SQ-02 ARRIVAL CONFIDENCE ────────────────────────────────────────── -->
-<section class="slide dark" id="s5" data-title="SQ-02: Arrival Confidence">
-  <div class="inner">
-    <div class="eyebrow">SQ-02 &nbsp;·&nbsp; Know Before You Go</div>
-    <div class="h2">Give colleagues <span class="accent">certainty before they travel</span></div>
-    <div class="bar"></div>
-    <div class="cols-2" style="gap:22px;align-items:start">
-      <div>
-        <div class="card-challenge" style="margin-bottom:11px">
-          <div style="font-size:10px;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">The Challenge</div>
-          <div style="font-size:12.5px;color:#CBD5E1;line-height:1.65;font-style:italic">"How does someone know — ahead of setting off — that they'll find a suitable desk when they walk in? Surface the signal, not just the seat count."</div>
-          <ul class="qlist" style="margin-top:10px">
-            <li>What level of certainty is enough to commit to a journey?</li>
-            <li>How do you signal likely availability per floor, not just the building?</li>
-            <li>What happens when confidence is low — do you suggest alternatives?</li>
-          </ul>
-        </div>
-      </div>
-      <div>
-        <div class="card-answer" style="margin-bottom:10px">
-          <div style="font-size:10px;font-weight:800;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Perch's Answer</div>
-          <ul class="blist">
-            <li><strong style="color:#F1F5F9">Floor Plan view</strong> shows live booking density per floor and neighbourhood — colour-coded green/amber/red — before you've left home</li>
-            <li><strong style="color:#F1F5F9">Who's In view</strong> shows which teammates are booked, which floor they're on, and at what time — making the journey feel purposeful, not speculative</li>
-            <li><strong style="color:#F1F5F9">Occupancy signal, not just seat count</strong> — "Neighbourhood 3 is 80% booked" is more actionable than "7 desks free across the building"</li>
-            <li><strong style="color:#F1F5F9">Low-confidence prompts</strong> — if your preferred neighbourhood is nearly full, Perch prompts you to book now or suggests a comparable alternative</li>
-            <li><strong style="color:#F1F5F9">Walk-in auto-booking safety net</strong> — if you arrive without a booking, proximity detection finds and allocates the best available desk immediately</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── 6. SQ-03 ENVIRONMENTAL ─────────────────────────────────────────────── -->
-<section class="slide dark" id="s6" data-title="SQ-03: Environmental">
-  <div class="inner">
-    <div class="eyebrow">SQ-03 &nbsp;·&nbsp; Environmental Comfort</div>
-    <div class="h2">The <span class="accent">environment matters</span> — capture it without form-filling</div>
-    <div class="bar"></div>
-    <div class="cols-2" style="gap:22px;align-items:start">
-      <div>
-        <div class="card-challenge" style="margin-bottom:11px">
-          <div style="font-size:10px;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">The Challenge</div>
-          <div style="font-size:12.5px;color:#CBD5E1;line-height:1.65;font-style:italic">"Temperature, natural light, noise, airflow, proximity to a window or aircon vent — these quietly shape whether a desk works for someone. How could these influence choice without turning booking into a form-filling exercise?"</div>
-          <ul class="qlist" style="margin-top:10px">
-            <li>Which environmental signals are worth capturing — and how?</li>
-            <li>Sensor data, colleague feedback, or both? Who owns the source of truth?</li>
-            <li>How do personal preferences get matched to the space without friction?</li>
-          </ul>
-        </div>
-      </div>
-      <div>
-        <div class="card-answer" style="margin-bottom:10px">
-          <div style="font-size:10px;font-weight:800;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Perch's Answer</div>
-          <ul class="blist">
-            <li><strong style="color:#F1F5F9">Rich desk metadata</strong> — each desk carries attributes: window proximity, quiet/collaborative zone, near aircon, standing desk, AV equipment, accessibility features</li>
-            <li><strong style="color:#F1F5F9">Set-once preferences</strong> — "I prefer window seats and quiet zones" is stored in your profile and applied silently to every booking. Never asked twice.</li>
-            <li><strong style="color:#F1F5F9">Post-booking micro-feedback</strong> — one tap after your session to flag "too cold", "too noisy", or "great spot". This enriches the desk's environmental profile over time.</li>
-            <li><strong style="color:#F1F5F9">Community signal → admin alert</strong> — when multiple users flag the same issue on a desk (e.g. "always cold"), admin receives an automated facilities alert</li>
-            <li><strong style="color:#F1F5F9">Roadmap: IoT sensor integration</strong> — CO₂, temperature, and noise sensors feed live environmental scores into the booking engine in Phase 3</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── 7. SQ-04 FRICTION-FREE CHANGE ─────────────────────────────────────── -->
-<section class="slide dark" id="s7" data-title="SQ-04: Friction-Free Change">
-  <div class="inner">
-    <div class="eyebrow">SQ-04 &nbsp;·&nbsp; Plans Change</div>
-    <div class="h2">Change a booking in <span class="accent">seconds</span> — freed capacity returns instantly</div>
-    <div class="bar"></div>
-    <div class="cols-2" style="gap:22px;align-items:start">
-      <div>
-        <div class="card-challenge" style="margin-bottom:11px">
-          <div style="font-size:10px;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">The Challenge</div>
-          <div style="font-size:12.5px;color:#CBD5E1;line-height:1.65;font-style:italic">"Plans shift. Meetings move, children get sick, the train is cancelled. How does someone cancel, shorten, swap, or hand over a booking in seconds — and how does the freed capacity get back into circulation cleanly?"</div>
-        </div>
-        <div class="card-glass" style="padding:14px">
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">The Four Change Types</div>
-          <div style="display:flex;flex-direction:column;gap:7px">
-            <div style="display:flex;gap:10px;align-items:center"><span class="tag tag-g" style="min-width:70px;text-align:center">Cancel</span><span style="font-size:12px;color:var(--text)">Desk released immediately back to available pool</span></div>
-            <div style="display:flex;gap:10px;align-items:center"><span class="tag tag-b" style="min-width:70px;text-align:center">Shorten</span><span style="font-size:12px;color:var(--text)">Reduce to AM or PM — partial day freed for others</span></div>
-            <div style="display:flex;gap:10px;align-items:center"><span class="tag tag-a" style="min-width:70px;text-align:center">Swap</span><span style="font-size:12px;color:var(--text)">Move to another desk, same day or future date</span></div>
-            <div style="display:flex;gap:10px;align-items:center"><span class="tag tag-p" style="min-width:70px;text-align:center">Hand Over</span><span style="font-size:12px;color:var(--text)">Transfer to a teammate — conflict check included</span></div>
+      <div style="background:rgba(0,106,77,0.14);border:1px solid rgba(0,179,126,0.3);border-radius:14px;padding:20px">
+        <div style="font-size:11px;font-weight:800;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">Our Approach</div>
+        <div style="font-size:19px;font-weight:800;color:#F1F5F9;margin-bottom:16px;line-height:1.35">No booking. Desks are <span style="color:var(--green-glow)">automatically allocated</span> on arrival.</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:grid;grid-template-columns:140px 1fr;gap:0;font-size:13.5px;line-height:1.55">
+            <span style="color:#F1F5F9;font-weight:700">Desk preferences</span>
+            <span style="color:var(--muted)">— set once. Equipment needs, environment, and neighbourhood matched silently every time.</span>
+          </div>
+          <div style="display:grid;grid-template-columns:140px 1fr;gap:0;font-size:13.5px;line-height:1.55">
+            <span style="color:#F1F5F9;font-weight:700">Arrival time</span>
+            <span style="color:var(--muted)">— check in and the best available desk is allocated instantly. Earlier arrival, more choice.</span>
+          </div>
+          <div style="display:grid;grid-template-columns:140px 1fr;gap:0;font-size:13.5px;line-height:1.55">
+            <span style="color:#F1F5F9;font-weight:700">User history</span>
+            <span style="color:var(--muted)">— desks you've used before score higher, returning you to familiar spaces automatically.</span>
+          </div>
+          <div style="display:grid;grid-template-columns:140px 1fr;gap:0;font-size:13.5px;line-height:1.55">
+            <span style="color:#F1F5F9;font-weight:700">No no-shows</span>
+            <span style="color:var(--muted)">— nothing is held if you don't arrive. Capacity stays fluid for everyone.</span>
           </div>
         </div>
       </div>
-      <div>
-        <div class="card-answer">
-          <div style="font-size:10px;font-weight:800;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Perch's Answer</div>
-          <ul class="blist">
-            <li><strong style="color:#F1F5F9">Single-tap change flow</strong> — no confirmation dialogs, no re-booking forms. The action is immediate and reversible within a short grace window.</li>
-            <li><strong style="color:#F1F5F9">Real-time capacity release</strong> — freed desks reappear in the booking engine within seconds, visible to other users immediately</li>
-            <li><strong style="color:#F1F5F9">Conflict-aware hand-over</strong> — before transferring, the system checks the recipient's existing bookings to prevent double-booking</li>
-            <li><strong style="color:#F1F5F9">No penalty system</strong> — the platform expects plans to change and treats every change as a normal, healthy behaviour, not a failure</li>
-            <li><strong style="color:#F1F5F9">Delegate booking</strong> — EAs and managers can book, change, and cancel on behalf of colleagues without needing their credentials</li>
-          </ul>
-        </div>
-      </div>
     </div>
   </div>
 </section>
 
-<!-- ── 8. SQ-05 PREDICTABLE HOT DESKING ──────────────────────────────────── -->
-<section class="slide dark" id="s8" data-title="SQ-05: Predictable Hot Desking">
+
+
+<!-- ── 3. FEATURES ───────────────────────────────────────────────────────── -->
+<section class="slide dark" id="s3" data-title="What We Built">
   <div class="inner">
-    <div class="eyebrow">SQ-05 &nbsp;·&nbsp; Familiarity Without Fixed Desks</div>
-    <div class="h2">Make hot desking feel <span class="accent">reliable and familiar</span></div>
+    <div class="eyebrow">What We Built</div>
+    <div class="h2">Two apps. <span class="accent">One platform.</span></div>
     <div class="bar"></div>
-    <div class="cols-2" style="gap:22px;align-items:start">
-      <div>
-        <div class="card-challenge" style="margin-bottom:11px">
-          <div style="font-size:10px;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">The Challenge</div>
-          <div style="font-size:12.5px;color:#CBD5E1;line-height:1.65;font-style:italic">"Hot desking fails when it feels random. How might the system make it feel reliable — returning someone to a familiar desk, recognising routines, or letting teams hold a cluster across days without locking the space down?"</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:stretch">
+
+      <div style="background:rgba(0,106,77,0.08);border:1px solid rgba(0,179,126,0.2);border-radius:14px;padding:18px;display:flex;flex-direction:column">
+        <div style="font-size:10px;font-weight:800;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">Colleague App</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;align-content:stretch">
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Dashboard</div><div class="feat-ds">Upcoming bookings, anchor day alerts, and team activity at a glance</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Floor Plan</div><div class="feat-ds">Live desk availability per floor and neighbourhood before you travel</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Who's In</div><div class="feat-ds">See which teammates are coming in, when, and where they're sitting</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">My Bookings</div><div class="feat-ds">View, modify, and manage all your upcoming desk sessions</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Team Bookings</div><div class="feat-ds">Coordinate group bookings so your team sits together</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Declare Attendance</div><div class="feat-ds">Signal your intent to come in — visible to teammates in Who's In</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">My Allocation</div><div class="feat-ds">View your assigned neighbourhood and desk preferences</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Feedback</div><div class="feat-ds">One-tap post-session feedback to rate your desk experience</div></div>
         </div>
-        <div class="card-glass" style="padding:14px">
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">How scoring creates familiarity</div>
-          <div style="display:flex;flex-direction:column;gap:5px;font-size:11.5px;color:var(--text)">
-            <div style="display:flex;justify-content:space-between"><span>Booked this desk 4× before</span><span style="color:var(--green-glow)">+25 pts</span></div>
-            <div style="display:flex;justify-content:space-between"><span>Your neighbourhood assignment</span><span style="color:var(--green-glow)">+20 pts</span></div>
-            <div style="display:flex;justify-content:space-between"><span>3 teammates booked nearby</span><span style="color:var(--green-glow)">+18 pts</span></div>
-            <div style="display:flex;justify-content:space-between"><span>Same floor, same day-of-week</span><span style="color:var(--green-glow)">+12 pts</span></div>
+      </div>
+
+      <div style="background:rgba(59,130,246,0.06);border:1px solid rgba(96,165,250,0.2);border-radius:14px;padding:18px">
+        <div style="font-size:10px;font-weight:800;color:var(--blue);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px">Admin App</div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px">Reports</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Overview</div><div class="feat-ds">Site-wide utilisation summary across all floors</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Occupancy</div><div class="feat-ds">Daily and weekly desk occupancy trends</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Team Report</div><div class="feat-ds">Attendance patterns broken down by team</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">AI Analysis</div><div class="feat-ds">Claude-powered insights on utilisation data</div></div>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px">Settings</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Desk Config</div><div class="feat-ds">Set equipment, attributes, and accessibility flags per desk</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Anchor Days</div><div class="feat-ds">Configure expected attendance days by team or site</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Neighbourhoods</div><div class="feat-ds">Define and assign team zones across floors</div></div>
+          <div class="feat" style="padding:10px 12px"><div class="feat-nm">Rules</div><div class="feat-ds">Booking window, advance limits, and policy controls</div></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── 4. DEMO ────────────────────────────────────────────────────────────── -->
+<section class="slide hero-end" id="s4" data-title="Live Demo">
+  <div class="inner" style="display:flex;flex-direction:column;align-items:center;gap:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+      <div>
+        <div class="eyebrow">Live Demo</div>
+        <div class="big-cta">Let's see it <span class="accent">in action.</span></div>
+      </div>
+      <a href="http://localhost:3000" target="_blank" style="display:inline-flex;align-items:center;gap:9px;padding:10px 22px;background:linear-gradient(135deg,rgba(0,106,77,0.35),rgba(0,143,104,0.25));border:1px solid rgba(0,179,126,0.4);border-radius:12px;font-size:13px;font-weight:700;color:var(--green-glow);text-decoration:none;flex-shrink:0" onmouseover="this.style.background='linear-gradient(135deg,rgba(0,106,77,0.55),rgba(0,143,104,0.4))'" onmouseout="this.style.background='linear-gradient(135deg,rgba(0,106,77,0.35),rgba(0,143,104,0.25))'">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        Open app
+      </a>
+    </div>
+    <!-- iPad landscape: 1024×330 scaled to fill container width, ~335px total height -->
+    <div style="width:100%">
+      <div style="background:#1a2332;border:1px solid rgba(255,255,255,0.12);border-radius:14px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6)">
+        <div style="display:flex;align-items:center;gap:7px;padding:9px 14px;background:#0f1a27;border-bottom:1px solid rgba(255,255,255,0.08)">
+          <div style="width:10px;height:10px;border-radius:50%;background:#FF5F57"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:#FEBC2E"></div>
+          <div style="width:10px;height:10px;border-radius:50%;background:#28C840"></div>
+          <div style="flex:1;background:rgba(255,255,255,0.07);border-radius:6px;padding:3px 10px;font-size:10px;font-family:monospace;color:var(--muted);margin-left:6px">localhost:3000</div>
+        </div>
+        <div style="position:relative;overflow:hidden" id="demo-viewport">
+          <iframe id="demo-frame" src="http://localhost:3000" style="width:1024px;height:330px;border:none;display:block;transform-origin:top left" title="Perch App" onload="scaleDemoFrame();document.getElementById('demo-fallback').style.display='none'"></iframe>
+          <div id="demo-fallback" style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#0d1829">
+            <img src="perchlogo.png" width="54" height="54" alt="Perch" style="opacity:0.7">
+            <div style="text-align:center">
+              <div style="font-size:13px;font-weight:700;color:#E2E8F0;margin-bottom:6px">Start the server to preview here</div>
+              <code style="font-size:12px;background:rgba(255,255,255,0.07);padding:5px 12px;border-radius:6px;color:#00B37E;display:block;margin-bottom:10px">node server.js</code>
+              <div style="font-size:11px;color:#64748B">Then open via <span style="color:#94A3B8;font-family:monospace">localhost:3000/presentation-auto.html</span></div>
+            </div>
           </div>
         </div>
       </div>
-      <div>
-        <div class="card-answer">
-          <div style="font-size:10px;font-weight:800;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Perch's Answer</div>
-          <ul class="blist">
-            <li><strong style="color:#F1F5F9">History-weighted scoring</strong> — desks you've used frequently score higher automatically. You return to the same area without a fixed allocation.</li>
-            <li><strong style="color:#F1F5F9">Neighbourhood as home zone</strong> — every user belongs to a neighbourhood. Even in a full hot-desk setup, you always land in your team's area.</li>
-            <li><strong style="color:#F1F5F9">Team cluster logic</strong> — when teammates book the same day, adjacent desks are boosted in scoring so the team naturally clusters together</li>
-            <li><strong style="color:#F1F5F9">Day-of-week routine</strong> — if you always book a Tuesday desk on the 3rd floor, that pattern is recognised and your usual area scores highest on Tuesdays</li>
-            <li><strong style="color:#F1F5F9">Temporary cluster requests</strong> — managers can request a desk cluster for team days. The desks are soft-held without permanent allocation, freeing up on unused days.</li>
-          </ul>
-        </div>
-      </div>
     </div>
   </div>
 </section>
 
-<!-- ── 9. SQ-06 BEHAVIOURAL NUDGES ────────────────────────────────────────── -->
-<section class="slide dark" id="s9" data-title="SQ-06: Behavioural Nudges">
-  <div class="inner">
-    <div class="eyebrow">SQ-06 &nbsp;·&nbsp; Shape Habits, Don't Police Them</div>
-    <div class="h2">Gentle nudges that <span class="accent">build good habits</span> without surveillance</div>
-    <div class="bar"></div>
-    <div class="cols-2" style="gap:22px;align-items:start">
-      <div>
-        <div class="card-challenge" style="margin-bottom:11px">
-          <div style="font-size:10px;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">The Challenge</div>
-          <div style="font-size:12.5px;color:#CBD5E1;line-height:1.65;font-style:italic">"Most desk-booking problems are behavioural, not technical. How might the system gently shape better habits — timely reminders, social visibility, smart defaults — without policing people or stacking up policy?"</div>
-        </div>
-        <div class="card-glass" style="padding:14px">
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Design principle</div>
-          <div style="font-size:12px;color:var(--text);line-height:1.6">Every nudge in Perch is <strong style="color:var(--green-glow)">helpful, not punitive</strong>. There is no attendance tracking, no compliance score visible to managers, and no penalty for any booking behaviour. The system assumes good intent.</div>
-        </div>
-      </div>
-      <div>
-        <div class="card-answer">
-          <div style="font-size:10px;font-weight:800;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Perch's Answer</div>
-          <ul class="blist">
-            <li><strong style="color:#F1F5F9">Dashboard anchor day alert</strong> — an amber card shows upcoming anchor days with no booking in the next 14 days, with one-click links to book each date</li>
-            <li><strong style="color:#F1F5F9">Push notifications</strong> — a personalised reminder for each unbooked anchor day, sent 48h in advance. Dismissed in one tap, never repeated.</li>
-            <li><strong style="color:#F1F5F9">Social visibility via Who's In</strong> — seeing that five teammates are going in on Thursday is the most effective nudge of all. No system needed — just the information.</li>
-            <li><strong style="color:#F1F5F9">Smart defaults</strong> — the booking form pre-selects the best-match desk. The user confirms or adjusts. Friction is minimal, choice quality is high.</li>
-            <li><strong style="color:#F1F5F9">5pm day-before reminder</strong> — if an anchor day is tomorrow and no desk is booked, a gentle prompt arrives at end of day with a pre-filled booking ready to confirm</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── 10. SQ-07 ADAPTIVE BOOKING RULES ──────────────────────────────────── -->
-<section class="slide dark" id="s10" data-title="SQ-07: Adaptive Rules">
-  <div class="inner">
-    <div class="eyebrow">SQ-07 &nbsp;·&nbsp; Rules That Flex</div>
-    <div class="h2">One rule rarely fits every case — <span class="accent">rules that compose</span></div>
-    <div class="bar"></div>
-    <div class="cols-2" style="gap:22px;align-items:start">
-      <div>
-        <div class="card-challenge" style="margin-bottom:11px">
-          <div style="font-size:10px;font-weight:800;color:var(--amber);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">The Challenge</div>
-          <div style="font-size:12.5px;color:#CBD5E1;line-height:1.65;font-style:italic">"Team bookings, anchor days, all-hands, training cohorts, visitor groups — how might the rules flex for the use case in front of them without becoming restrictive for the everyday booker?"</div>
-        </div>
-        <div class="card-glass" style="padding:14px">
-          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Rule composition example</div>
-          <div style="display:flex;flex-direction:column;gap:5px">
-            <div style="display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--text)"><span class="tag tag-g">Personal</span>Alice's anchor: Mon, Fri</div>
-            <div style="display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--text)"><span class="tag tag-b">Team</span>Platform Eng: Wed + Thu</div>
-            <div style="display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--text)"><span class="tag tag-a">Site</span>Edinburgh: Wed all-hands</div>
-            <div style="border-top:1px solid rgba(255,255,255,0.07);padding-top:5px;margin-top:3px;display:flex;gap:8px;align-items:center;font-size:11.5px"><span class="tag tag-p">Effective</span><span style="color:var(--green-glow)">Mon, Wed, Thu, Fri — union, no conflict</span></div>
-          </div>
-        </div>
-      </div>
-      <div>
-        <div class="card-answer">
-          <div style="font-size:10px;font-weight:800;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">Perch's Answer</div>
-          <ul class="blist">
-            <li><strong style="color:#F1F5F9">Composable anchor day rules</strong> — personal, team, and site-level anchor days union together. They never conflict; they add. The everyday booker sees only the result.</li>
-            <li><strong style="color:#F1F5F9">Team Bookings flow</strong> — managers request a coordinated group booking for 3+ people. Team members approve their own seat within the cluster.</li>
-            <li><strong style="color:#F1F5F9">Delegate booking</strong> — any user can be nominated as a delegate to book on behalf of others (EAs, ops teams, visiting groups)</li>
-            <li><strong style="color:#F1F5F9">All-hands day configuration</strong> — admin marks a date as a whole-site expected attendance day with one setting, triggering notifications to all users at that site</li>
-            <li><strong style="color:#F1F5F9">Cohort cluster requests</strong> — training groups or visitor cohorts can request a block of adjacent desks for a date range, held without permanent allocation</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ── 11. ARCHITECTURE ───────────────────────────────────────────────────── -->
+<!-- ── 5. ARCHITECTURE ───────────────────────────────────────────────────── -->
 <section class="slide dark" id="s11" data-title="Architecture">
   <div class="inner">
     <div class="eyebrow">Technical Architecture</div>
@@ -560,14 +350,74 @@
       <div class="compare-col prod">
         <div class="compare-head" style="color:var(--green-glow)">Production — Enterprise Target</div>
         <div class="compare-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Azure Static Web Apps — global CDN, built-in SSL, CI/CD</div>
-        <div class="compare-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Azure Cosmos DB — multi-region, fully managed</div>
+        <div class="compare-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Azure SQL Database — managed, enterprise-grade</div>
         <div class="compare-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Azure Functions — serverless API, scales to zero</div>
         <div class="compare-row"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Azure AD (Entra ID) — real SSO, MFA, Conditional Access</div>
       </div>
     </div>
-    <div class="arch-layer"><div class="arch-label">Edge &amp; Security</div><div class="arch-row"><div class="arch-box arch-box-amber">Azure Front Door + WAF</div><div class="arch-box arch-box-amber">DDoS Protection</div><div class="arch-box arch-box-amber">TLS 1.3</div></div></div>
-    <div class="arch-arrow-row">↓</div>
-    <div class="arch-layer"><div class="arch-label">Platform Services</div><div class="arch-row"><div class="arch-box arch-box-blue">Azure AD / Entra ID</div><div class="arch-box arch-box-blue">Cosmos DB</div><div class="arch-box arch-box-blue">Key Vault</div><div class="arch-box arch-box-blue">SignalR</div><div class="arch-box arch-box-blue">App Insights</div><div class="arch-box arch-box-blue">Anthropic Claude</div></div></div>
+    <div style="margin-top:6px">
+      <div class="arch-label" style="margin-bottom:10px">Request Flow</div>
+      <div style="display:flex;align-items:stretch;gap:0;width:100%">
+
+        <!-- User -->
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 8px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:10px;text-align:center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <div style="font-size:11px;font-weight:700;color:#CBD5E1">User</div>
+          <div style="font-size:9.5px;color:var(--muted);line-height:1.4">Browser<br>/ Device</div>
+        </div>
+
+        <!-- Arrow -->
+        <div style="display:flex;align-items:center;padding:0 4px;color:var(--slate);font-size:16px;flex-shrink:0">→</div>
+
+        <!-- Edge & Security -->
+        <div style="flex:1.4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 8px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);border-radius:10px;text-align:center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <div style="font-size:11px;font-weight:700;color:#FCD34D">Edge &amp; Security</div>
+          <div style="font-size:9.5px;color:var(--muted);line-height:1.4">DDoS Protection<br>TLS 1.3 · HSTS</div>
+        </div>
+
+        <!-- Arrow -->
+        <div style="display:flex;align-items:center;padding:0 4px;color:var(--slate);font-size:16px;flex-shrink:0">→</div>
+
+        <!-- Identity -->
+        <div style="flex:1.4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 8px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.3);border-radius:10px;text-align:center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          <div style="font-size:11px;font-weight:700;color:#93C5FD">Identity</div>
+          <div style="font-size:9.5px;color:var(--muted);line-height:1.4">Entra ID SSO<br>MFA · Conditional Access</div>
+        </div>
+
+        <!-- Arrow -->
+        <div style="display:flex;align-items:center;padding:0 4px;color:var(--slate);font-size:16px;flex-shrink:0">→</div>
+
+        <!-- Application -->
+        <div style="flex:1.4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 8px;background:rgba(0,106,77,0.12);border:1px solid rgba(0,179,126,0.3);border-radius:10px;text-align:center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+          <div style="font-size:11px;font-weight:700;color:#6EE7B7">Application</div>
+          <div style="font-size:9.5px;color:var(--muted);line-height:1.4">Static Web Apps<br>Azure Functions API</div>
+        </div>
+
+        <!-- Arrow -->
+        <div style="display:flex;align-items:center;padding:0 4px;color:var(--slate);font-size:16px;flex-shrink:0">→</div>
+
+        <!-- Data -->
+        <div style="flex:1.4;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 8px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.3);border-radius:10px;text-align:center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          <div style="font-size:11px;font-weight:700;color:#93C5FD">Data</div>
+          <div style="font-size:9.5px;color:var(--muted);line-height:1.4">Azure SQL · Key Vault<br>App Insights</div>
+        </div>
+
+        <!-- Arrow -->
+        <div style="display:flex;align-items:center;padding:0 4px;color:var(--slate);font-size:16px;flex-shrink:0">→</div>
+
+        <!-- AI -->
+        <div style="flex:1.2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 8px;background:rgba(167,139,250,0.08);border:1px solid rgba(167,139,250,0.3);border-radius:10px;text-align:center">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.22 4.22l2.12 2.12M17.66 17.66l2.12 2.12M2 12h3M19 12h3M4.22 19.78l2.12-2.12M17.66 6.34l2.12-2.12"/></svg>
+          <div style="font-size:11px;font-weight:700;color:#C4B5FD">AI Layer</div>
+          <div style="font-size:9.5px;color:var(--muted);line-height:1.4">Anthropic Claude<br>Analysis</div>
+        </div>
+
+      </div>
+    </div>
   </div>
 </section>
 
@@ -575,14 +425,14 @@
 <section class="slide dark" id="s12" data-title="Security & Hosting">
   <div class="inner">
     <div class="eyebrow">Enterprise Security &amp; Hosting</div>
-    <div class="h2">Zero Trust. <span class="accent">Defence in depth.</span> ~£120/month for 50 users.</div>
+    <div class="h2">Zero Trust. <span class="accent">Defence in depth.</span> ~£74/month for 45,000 users.</div>
     <div class="bar"></div>
-    <div class="cols-2" style="gap:20px;align-items:start">
+    <div class="cols-2" style="gap:20px;align-items:stretch">
       <div style="display:flex;flex-direction:column;gap:9px">
-        <div class="sec-item"><div class="sec-ico" style="background:rgba(59,130,246,0.15)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="sec-t">Authentication</div><div class="sec-d">Azure AD SAML / OIDC, MFA enforced, Conditional Access blocks non-compliant devices</div></div></div>
-        <div class="sec-item"><div class="sec-ico" style="background:rgba(0,106,77,0.2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="23 21 17 15"/><circle cx="20" cy="18" r="3"/></svg></div><div><div class="sec-t">Authorisation (RBAC)</div><div class="sec-d">Three roles: User, Manager, Admin. OAuth 2.0 scopes. Principle of least privilege.</div></div></div>
-        <div class="sec-item"><div class="sec-ico" style="background:rgba(245,158,11,0.15)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div><div><div class="sec-t">Encryption</div><div class="sec-d">TLS 1.3 in transit (HSTS). AES-256 at rest. Secrets in Key Vault — never in code.</div></div></div>
-        <div class="sec-item"><div class="sec-ico" style="background:rgba(167,139,250,0.15)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div><div class="sec-t">Audit &amp; GDPR</div><div class="sec-d">All events to Azure Monitor + Sentinel. GDPR: right-to-erasure, 13-month retention, UK data residency.</div></div></div>
+        <div class="sec-item" style="flex:1"><div class="sec-ico" style="background:rgba(59,130,246,0.15)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="sec-t">Authentication</div><div class="sec-d">Azure AD SAML / OIDC, MFA enforced, Conditional Access blocks non-compliant devices</div></div></div>
+        <div class="sec-item" style="flex:1"><div class="sec-ico" style="background:rgba(0,106,77,0.2)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="23 21 17 15"/><circle cx="20" cy="18" r="3"/></svg></div><div><div class="sec-t">Authorisation (RBAC)</div><div class="sec-d">Three roles: User, Manager, Admin. OAuth 2.0 scopes. Principle of least privilege.</div></div></div>
+        <div class="sec-item" style="flex:1"><div class="sec-ico" style="background:rgba(245,158,11,0.15)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div><div><div class="sec-t">Encryption</div><div class="sec-d">TLS 1.3 in transit (HSTS). AES-256 at rest. Secrets in Key Vault — never in code.</div></div></div>
+        <div class="sec-item" style="flex:1"><div class="sec-ico" style="background:rgba(167,139,250,0.15)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div><div class="sec-t">Audit &amp; GDPR</div><div class="sec-d">All events to Azure Monitor + Sentinel. GDPR: right-to-erasure, 13-month retention, UK data residency.</div></div></div>
       </div>
       <div style="display:flex;flex-direction:column;gap:9px">
         <div class="card-glass">
@@ -594,13 +444,14 @@
           <div style="font-size:12px;color:var(--text);line-height:1.6">Scales to zero · Handles thousands of concurrent requests · Node.js runtime — direct port of existing proxy</div>
         </div>
         <div class="card-glass">
-          <div style="font-size:11px;font-weight:700;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px">Estimated Monthly Cost (50 users)</div>
+          <div style="font-size:11px;font-weight:700;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Estimated Monthly Cost (45,000 users)</div>
           <div style="display:flex;flex-direction:column;gap:5px;font-size:12px">
-            <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px"><span>Static Web Apps + Functions</span><span style="color:var(--green-glow)">~£9</span></div>
-            <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px"><span>Cosmos DB (serverless)</span><span style="color:var(--green-glow)">~£20</span></div>
-            <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px"><span>Azure AD P1 × 50 users</span><span style="color:var(--green-glow)">~£90</span></div>
-            <div style="display:flex;justify-content:space-between;color:var(--green-glow);font-weight:700;padding-top:3px"><span>Total estimate</span><span>~£120/mo</span></div>
+            <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px"><span>Static Web Apps Standard (×2 apps)</span><span style="color:var(--green-glow)">~£14</span></div>
+            <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px"><span>Azure Functions (Consumption)</span><span style="color:var(--green-glow)">~£1</span></div>
+            <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px"><span>Azure SQL S2 — 250GB storage included</span><span style="color:var(--green-glow)">~£59</span></div>
+            <div style="display:flex;justify-content:space-between;color:var(--green-glow);font-weight:700;padding-top:4px"><span>Total estimate</span><span>~£74/mo</span></div>
           </div>
+          <div style="margin-top:8px;font-size:10.5px;color:var(--slate);line-height:1.5">App Insights within free tier (5GB/mo). Azure Static Web Apps includes built-in global CDN.</div>
         </div>
       </div>
     </div>
@@ -608,52 +459,14 @@
 </section>
 
 <!-- ── 13. ROADMAP ────────────────────────────────────────────────────────── -->
-<section class="slide dark" id="s13" data-title="Roadmap">
-  <div class="inner">
-    <div class="eyebrow">What's Next</div>
-    <div class="h2">A platform, not just an app — <span class="accent">built to grow</span></div>
-    <div class="bar"></div>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
-      <div class="rm-item"><div class="rm-phase tag-g" style="background:rgba(0,179,126,0.15);color:var(--green-glow)">Phase 1<br>0–3 mo</div><div><div class="rm-t">Real backend + Azure AD SSO</div><div class="rm-d">Replace localStorage with Cosmos DB. Wire up genuine Azure AD single sign-on. Full CI/CD pipeline to production. Completes SQ-02 Arrival Confidence with live server-side occupancy data.</div></div></div>
-      <div class="rm-item"><div class="rm-phase tag-b" style="background:rgba(59,130,246,0.15);color:#60A5FA">Phase 2<br>3–6 mo</div><div><div class="rm-t">Calendar &amp; collaboration integrations</div><div class="rm-d">Outlook / Teams calendar sync. Teams bot for booking within Teams. Slack webhooks for anchor day reminders. Extends SQ-06 Behavioural Nudges to where people already work.</div></div></div>
-      <div class="rm-item"><div class="rm-phase tag-a" style="background:rgba(245,158,11,0.15);color:#FBBF24">Phase 3<br>6–12 mo</div><div><div class="rm-t">IoT occupancy sensors &amp; PWA</div><div class="rm-d">Real desk sensors for CO₂, temperature, noise — fulfils SQ-03 Environmental with live data. Native PWA with offline support and biometric login for iOS / Android.</div></div></div>
-      <div class="rm-item"><div class="rm-phase tag-p" style="background:rgba(167,139,250,0.15);color:#A78BFA">Phase 4<br>12+ mo</div><div><div class="rm-t">Predictive intelligence &amp; facilities integration</div><div class="rm-d">ML models predict anchor day no-shows 48h in advance (SQ-06). CAFM integration for facilities scheduling. Power BI embedded analytics for leadership. SQ-05 Predictable Hot Desking reaches full recommendation maturity.</div></div></div>
-    </div>
-    <div class="card-glass" style="padding:12px 16px;border-color:rgba(0,179,126,0.2)">
-      <div style="font-size:12px;color:var(--text);line-height:1.6"><strong style="color:var(--green-glow)">Open architecture:</strong> SPA + serverless + Cosmos DB means each phase ships independently. Swap the AI provider, add an integration, or scale the database without touching the frontend.</div>
-    </div>
-  </div>
-</section>
 
-<!-- ── 14. DEMO ───────────────────────────────────────────────────────────── -->
-<section class="slide hero-end" id="s14" data-title="Live Demo">
-  <div class="inner" style="display:flex;gap:56px;align-items:center">
-    <div style="flex:1">
-      <div class="eyebrow">Live Demo</div>
-      <div class="big-cta">Let's see it<br><span class="accent">in action.</span></div>
-      <div class="bar" style="margin-top:16px"></div>
-      <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:16px">
-        Open the app, sign in as any of 50 realistic users across London, Edinburgh, and Leeds.<br>
-        Try booking a desk, coordinating a team booking, running Claude AI analysis, or previewing the mobile view.
-      </div>
-      <div class="url-chip">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20"/></svg>
-        http://localhost:3000
-      </div>
-      <a href="https://github.com/Jen5534/gandalfgsang" class="gh-link" target="_blank">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-        github.com/Jen5534/gandalfgsang
-      </a>
-    </div>
-    <div style="flex:0 0 auto;text-align:center">
-      <div style="width:170px;height:170px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:9px;margin-bottom:13px">
-        <img src="perchlogo.png" width="68" height="68" alt="Perch" style="opacity:0.9">
-        <div style="font-size:11px;color:var(--muted)">localhost:3000</div>
-      </div>
-      <div style="font-size:12px;color:var(--muted)">Start the server:<br>
-        <code style="font-family:monospace;font-size:11px;background:rgba(255,255,255,0.07);padding:5px 11px;border-radius:6px;display:inline-block;margin-top:5px;color:var(--green-glow)">node server.js</code>
-      </div>
-    </div>
+<!-- ── Q&A ─────────────────────────────────────────────────────────────────── -->
+<section class="slide hero" id="s-qa" data-title="Q&A">
+  <div class="inner" style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:14px">
+      <div class="eyebrow" style="font-size:13px;letter-spacing:0.18em">Gandalf's Gang</div>
+      <div class="h2" style="font-size:clamp(54px,8vw,100px);letter-spacing:-0.04em">The <span class="accent">End</span></div>
+      <div class="bar" style="margin:4px auto 0"></div>
+      <div style="font-size:16px;color:var(--muted);line-height:1.75">Thank you for watching.<br>We'd love to hear your questions.</div>
   </div>
 </section>
 
@@ -670,7 +483,7 @@
   <div class="ctrl-section">
     <div id="ctrl-slide-title">Welcome to Perch</div>
   </div>
-  <div class="ctrl-section grow">
+  <div style="position:absolute;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px">
     <button class="ctrl-btn" id="ctrl-prev" onclick="go(-1)" title="Previous (←)">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
@@ -681,24 +494,8 @@
     <button class="ctrl-btn" id="ctrl-next" onclick="go(1)" title="Next (→)">
       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
     </button>
-    <div id="ctrl-waveform" class="silent">
-      <div class="wave-bar"></div><div class="wave-bar"></div><div class="wave-bar"></div>
-      <div class="wave-bar"></div><div class="wave-bar"></div>
-    </div>
   </div>
   <div class="ctrl-section">
-    <div class="ctrl-speed-grp">
-      <button class="ctrl-speed-btn" data-speed="0.8" onclick="setSpeed(0.8)">0.8×</button>
-      <button class="ctrl-speed-btn active" data-speed="1" onclick="setSpeed(1)">1×</button>
-      <button class="ctrl-speed-btn" data-speed="1.2" onclick="setSpeed(1.2)">1.2×</button>
-      <button class="ctrl-speed-btn" data-speed="1.5" onclick="setSpeed(1.5)">1.5×</button>
-    </div>
-  </div>
-  <div class="ctrl-section">
-    <button class="ctrl-toggle active" id="ctrl-mute-btn" onclick="toggleMute()">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
-      <span id="mute-label">Narration</span>
-    </button>
     <button class="ctrl-toggle active" id="ctrl-auto-btn" onclick="toggleAuto()">
       <div class="ctrl-dot"></div>
       <span id="auto-label">Auto</span>
@@ -711,39 +508,17 @@
   const total   = slides.length;
   let cur       = 0;
   let isPlaying = false;
-  let muted     = false;
   let autoAdv   = true;
   let rate      = 1.0;
   let autoTimer = null;
-  let synth     = window.speechSynthesis || null;
-  let voices    = [];
-  let hideTimer = null;
-  let toastTimer = null;
 
-  const NARRATIONS = [
-    /* 1 */ "Welcome to Perch — smart desk booking for the hybrid era. Built during this hackathon, Perch is an enterprise-ready workplace intelligence platform powered by Claude AI. Let me walk you through the seven design challenges we set out to solve, and how we solved them.",
-    /* 2 */ "The numbers tell the story. 68 percent of office space sits underutilised post-pandemic. Employees waste over 12 minutes per day just finding a suitable desk. At over eight thousand pounds per empty desk per year in central London, this isn't just a productivity problem — it's a real financial drain. The booking experience must become invisible. The data it generates must make the business smarter.",
-    /* 3 */ "We structured our thinking around seven specific design challenges that hybrid working creates. First-Time Fit: finding the right desk on the first try. Arrival Confidence: knowing a suitable desk will be there before you travel. Environmental comfort: matching temperature, light, and noise preferences without form-filling. Friction-Free Change: cancelling or swapping in seconds. Predictable Hot Desking: familiarity without fixed allocations. Behavioural Nudges: shaping habits gently without surveillance. And Adaptive Booking Rules: rules that flex for every use case without restricting the everyday booker.",
-    /* 4 */ "Challenge one: First-Time Fit. The question isn't just 'is there a free desk?' — it's 'is there the right desk for this person, this task, today?' Perch answers this with a multi-signal scoring engine that combines team proximity, neighbourhood fit, desk equipment, and personal preferences. Past bookings feed the model automatically — your frequently used desks score higher, surfaced as 'your usual' without you ever having to ask. And rather than overwhelming the user with 50 options, Perch presents one confident recommendation with transparent reasoning: teammates nearby, your usual floor, window seat.",
-    /* 5 */ "Challenge two: Arrival Confidence. How does someone know — before they set off — that they'll find a suitable desk? Perch's Floor Plan view shows live booking density per floor and neighbourhood in colour-coded green, amber, and red — before you've left the house. The Who's In view shows which teammates are going in and where, making the commute feel purposeful rather than speculative. If your preferred neighbourhood is nearly full, Perch prompts you to book now or suggests an alternative. And if you arrive without a booking, walk-in auto-booking detects your proximity and allocates the best available desk immediately.",
-    /* 6 */ "Challenge three: Environmental comfort. Temperature, natural light, noise — these quietly shape whether a desk actually works for someone. But nobody wants to fill in a form every time they book. Perch captures rich desk metadata — window proximity, quiet versus collaborative zone, near aircon, accessibility features. Preferences are set once in your profile and applied silently to every booking, invisibly. After a session, a one-tap micro-feedback lets you flag 'too noisy' or 'great spot', enriching the desk's environmental profile over time. When enough users flag the same issue, the admin receives an automated facilities alert. And in Phase 3, IoT sensors for CO₂, temperature, and noise feed live scores directly into the booking engine.",
-    /* 7 */ "Challenge four: Friction-Free Change. Plans shift. The train gets cancelled. A child gets sick. A meeting moves. Perch makes every type of change trivially easy: cancel and the desk returns to the pool in seconds; shorten to AM or PM and the freed half-day becomes immediately bookable; swap to another desk on the same day or a future date; or hand over to a teammate with automatic conflict checking. The system expects plans to change and treats every change as normal and healthy. There is no penalty system, no compliance flag. Delegate booking lets EAs and managers handle changes on behalf of colleagues without needing their credentials.",
-    /* 8 */ "Challenge five: Predictable Hot Desking. Hot desking fails when it feels random. Perch makes it feel familiar through the scoring engine, not through fixed allocation. Desks you've used before score higher — you return to the same area without a formal assignment. Neighbourhood membership gives everyone a home zone even in a pure hot-desk setup. Team cluster logic boosts adjacent desks when teammates book the same day, so your team naturally sits together. Day-of-week routine recognition means your Tuesday area scores highest on Tuesdays. And managers can request a temporary desk cluster for team days — held without permanent lock-down, freed on days the team isn't in.",
-    /* 9 */ "Challenge six: Behavioural Nudges. Most desk-booking problems are behavioural, not technical. Perch shapes habits through information and suggestion, never through surveillance or penalty. The dashboard shows an amber alert for any anchor days in the next 14 days with no booking — one click books each date. Push notifications land 48 hours before each unbooked anchor day. The Who's In view creates natural social coordination — seeing five teammates going in on Thursday is the most effective nudge of all. Smart defaults pre-select the best-match desk so the user just confirms. And a 5pm day-before reminder appears if tomorrow is an anchor day with no booking. Everything is helpful and dismissible. Nothing is punitive.",
-    /* 10 */ "Challenge seven: Adaptive Booking Rules. One rule never fits every case. Perch solves this through composable, additive rules that never conflict. Anchor days are configured at three levels — personal, team, and site — and the system takes the union. If Alice's personal anchor days are Monday and Friday, her team adds Wednesday and Thursday, and her Edinburgh site adds Wednesday for all-hands, her effective days are Monday through Friday — with no clashes, no admin overhead. On top of this, Team Bookings provides a request-and-approve flow for coordinated group bookings. Delegate booking covers EAs and ops teams. All-hands day configuration alerts a whole site with one admin action. And cohort clusters let training groups or visitors hold adjacent desks for a period without permanent allocation. The everyday booker never sees any of this complexity.",
-    /* 11 */ "Technically, we built the hackathon version to run anywhere with zero dependencies — pure static HTML, CSS, and JavaScript, localStorage for data, a 50-line Node.js server to proxy the Anthropic API. It runs on any laptop in under 30 seconds. But the architecture was designed from day one to scale. The same SPA frontend connects directly to Azure Static Web Apps on a global CDN, Cosmos DB for multi-region data, Azure Functions for the serverless API layer, and real Azure Active Directory for single sign-on. The frontend ships unchanged — only the data and auth layers swap out.",
-    /* 12 */ "The production architecture is Zero Trust by design. Azure AD enforces MFA and Conditional Access. Three RBAC roles govern every action via OAuth 2.0 scopes. TLS 1.3 in transit, AES-256 at rest, secrets in Key Vault. All booking and admin events stream to Azure Monitor with Sentinel SIEM alerting. WAF enforces OWASP 3.2. GDPR is built in — right to erasure, 13-month retention, UK data residency. The estimated cost for 50 users is around £120 per month, with £90 of that going to Azure AD P1 for MFA and Conditional Access.",
-    /* 13 */ "The roadmap treats Perch as a platform, not just an app. Phase 1 replaces localStorage with Cosmos DB and wires up real Azure AD — full production parity in 3 months, completing Arrival Confidence with live server-side occupancy. Phase 2 adds Outlook, Teams, and Slack integrations, extending behavioural nudges to where people already work. Phase 3 brings IoT desk sensors for live environmental data, completing the Environmental challenge, plus a native PWA with offline support. Phase 4 adds machine learning to predict anchor day no-shows 48 hours in advance, and CAFM integration for facilities management. Every phase is independent — the open architecture means no big-bang rewrites.",
-    /* 14 */ "And now let's see it in action. The app is running at localhost 3000. Sign in as any of 50 realistic users across London, Edinburgh, and Leeds. Book a desk, coordinate a team booking, run Claude AI analysis on the booking data, or try the mobile device preview. Start the server with node server.js — and let's explore Perch together.",
-  ];
-
-  const ANIM_SEL = '.feat,.sec-item,.rm-item,.stat,.arch-layer,.compare-col,.card-glass,.card-challenge,.card-answer,.url-chip,.gh-link';
+  const ANIM_SEL = '.feat,.sec-item,.rm-item,.stat,.arch-layer,.compare-col,.card-glass,.card-challenge,.card-answer';
 
   function go(delta) {
-    stopSpeech(); clearAutoTimer();
+    clearAutoTimer();
     const next = ((cur + delta) % total + total) % total;
     activateSlide(next);
-    if (isPlaying) speakSlide(cur);
+    if (isPlaying) scheduleAutoAdvance();
   }
 
   function activateSlide(n) {
@@ -769,44 +544,8 @@
     document.getElementById('ctrl-slide-title').textContent = slides[cur].dataset.title || '';
   }
 
-  function loadVoices() {
-    if (!synth) return;
-    voices = synth.getVoices();
-    if (!voices.length) synth.onvoiceschanged = () => { voices = synth.getVoices(); };
-  }
-
-  function pickVoice() {
-    return voices.find(v => v.lang === 'en-GB' && v.localService) ||
-           voices.find(v => v.lang.startsWith('en') && v.localService) ||
-           voices.find(v => v.lang.startsWith('en')) || (voices[0] || null);
-  }
-
-  function speakSlide(idx) {
-    if (!synth || muted) { if (autoAdv) scheduleAutoAdvance(NARRATIONS[idx]); return; }
-    const text = NARRATIONS[idx] || '';
-    synth.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = rate; u.pitch = 1;
-    const v = pickVoice(); if (v) u.voice = v;
-    u.onstart = () => { document.getElementById('ctrl-waveform').className = 'speaking'; };
-    u.onend   = () => {
-      document.getElementById('ctrl-waveform').className = 'silent';
-      if (autoAdv && isPlaying && cur < total - 1) autoTimer = setTimeout(() => go(1), 1400);
-      else if (autoAdv && isPlaying && cur === total - 1) { isPlaying = false; updatePlayBtn(); }
-    };
-    u.onerror = () => { document.getElementById('ctrl-waveform').className = 'silent'; };
-    synth.speak(u);
-    showToast(text);
-  }
-
-  function stopSpeech() {
-    if (synth) synth.cancel();
-    document.getElementById('ctrl-waveform').className = 'silent';
-  }
-
-  function scheduleAutoAdvance(text) {
-    const words = (text || '').split(/\s+/).length;
-    const ms = Math.max(4000, Math.round((words / 145) * 60000 / rate));
+  function scheduleAutoAdvance() {
+    const ms = Math.round(8000 / rate);
     autoTimer = setTimeout(() => {
       if (cur < total - 1) go(1); else { isPlaying = false; updatePlayBtn(); }
     }, ms);
@@ -816,8 +555,8 @@
 
   function togglePlay() {
     isPlaying = !isPlaying; updatePlayBtn();
-    if (isPlaying) speakSlide(cur);
-    else { stopSpeech(); clearAutoTimer(); }
+    if (isPlaying) scheduleAutoAdvance();
+    else clearAutoTimer();
   }
 
   function updatePlayBtn() {
@@ -828,14 +567,7 @@
   function setSpeed(s) {
     rate = s;
     document.querySelectorAll('.ctrl-speed-btn').forEach(b => b.classList.toggle('active', parseFloat(b.dataset.speed) === s));
-    if (isPlaying && synth && !muted) { stopSpeech(); speakSlide(cur); }
-  }
-
-  function toggleMute() {
-    muted = !muted;
-    document.getElementById('ctrl-mute-btn').classList.toggle('active', !muted);
-    document.getElementById('mute-label').textContent = muted ? 'Muted' : 'Narration';
-    if (isPlaying) { stopSpeech(); clearAutoTimer(); speakSlide(cur); }
+    if (isPlaying) { clearAutoTimer(); scheduleAutoAdvance(); }
   }
 
   function toggleAuto() {
@@ -843,26 +575,10 @@
     document.getElementById('ctrl-auto-btn').classList.toggle('active', autoAdv);
     document.getElementById('auto-label').textContent = autoAdv ? 'Auto' : 'Manual';
     if (!autoAdv) clearAutoTimer();
+    else if (isPlaying) scheduleAutoAdvance();
   }
 
-  function showToast(text) {
-    if (muted) return;
-    const el = document.getElementById('narr-toast');
-    el.textContent = text.length > 130 ? text.slice(0, 127) + '…' : text;
-    el.classList.add('visible');
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove('visible'), 5000);
-  }
-
-  function showCtrl() {
-    document.getElementById('ctrl-bar').classList.remove('hidden-bar');
-    clearTimeout(hideTimer);
-    hideTimer = setTimeout(() => { if (isPlaying) document.getElementById('ctrl-bar').classList.add('hidden-bar'); }, 4000);
-  }
-
-  document.addEventListener('mousemove', showCtrl);
-  document.addEventListener('keydown', showCtrl);
-  document.getElementById('ctrl-bar').addEventListener('mouseenter', () => { clearTimeout(hideTimer); document.getElementById('ctrl-bar').classList.remove('hidden-bar'); });
+  document.getElementById('ctrl-bar').classList.remove('hidden-bar');
 
   document.addEventListener('keydown', e => {
     if (['ArrowRight','ArrowDown'].includes(e.key)) { e.preventDefault(); go(1); }
@@ -876,9 +592,22 @@
   document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
   document.addEventListener('touchend', e => { const dx = e.changedTouches[0].clientX - tx; if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1); }, { passive: true });
 
-  loadVoices();
   Array.from(slides[0].querySelectorAll(ANIM_SEL)).forEach((el, i) => { el.style.animationDelay = (0.3 + i * 0.09) + 's'; });
   updateHUD();
+
+  function scaleDemoFrame() {
+    const viewport = document.getElementById('demo-viewport');
+    const frame    = document.getElementById('demo-frame');
+    if (!viewport || !frame) return;
+    const containerW = viewport.parentElement.clientWidth;
+    const frameW     = 1024;
+    const frameH     = 330;
+    const scale      = containerW / frameW;
+    frame.style.transform = `scale(${scale})`;
+    viewport.style.height = (frameH * scale) + 'px';
+  }
+  window.addEventListener('resize', scaleDemoFrame);
+  scaleDemoFrame();
 </script>
 </body>
 </html>
