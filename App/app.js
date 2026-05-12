@@ -1916,8 +1916,7 @@ function renderFloorPlan() {
   const floorBookings = bookings.filter(b => b.desk?.floor === floorPlanFloor);
   const bookedDeskIds = new Set(floorBookings.map(b => b.deskId));
   const floorDesks = DESKS.filter(d => d.floor === floorPlanFloor);
-  const customImgSrc = activePlan?.imageUrl && !activePlan.imageUrl.startsWith('/floorplans/') ? activePlan.imageUrl : '';
-  const imgSrc = customImgSrc || generateFloorPlanSVG(activePlan?.floorKey || floorPlanFloor);
+  const imgSrc = activePlan?.imageUrl || generateFloorPlanSVG(activePlan?.floorKey || floorPlanFloor);
 
   const markers = floorDesks.map(desk => {
     const coords = DESK_COORDS[desk.id];
