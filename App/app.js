@@ -366,7 +366,7 @@ function navigate(view) {
   document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
   document.getElementById(`view-${view}`).classList.remove('hidden');
   if (view === 'dashboard') renderDashboard();
-  else if (view === 'book') initBookView();
+  else if (view === 'book') renderDeclareView(); // manual booking removed — redirect to declare
   else if (view === 'my-bookings') renderMyBookings();
   else if (view === 'whos-in') renderWhosIn();
   else if (view === 'floorplan') renderFloorPlan();
@@ -918,10 +918,16 @@ async function renderDashboard() {
 
   const walkInBanner = (() => {
     if (myTodayBookings.length > 0) return '';
+    const todayAlloc_ = getAllocationForUser(currentUser.id, today());
+    if (todayAlloc_ && todayAlloc_.status !== 'released') {
+      return `<div class="checkin-banner checkin-banner-walkin">
+        <span>You have a soft allocation for today: <strong>${todayAlloc_.deskId}</strong>. Tap when you arrive to confirm it.</span>
+        <button class="btn btn-sm btn-primary" onclick="simulateBuildingScanIn()">I've arrived</button>
+      </div>`;
+    }
     if (!loadAutoBookAdminSettings().enableOnScan) return '';
-    if (todayStatus !== 'office' && !todayAnchor) return '';
     return `<div class="checkin-banner checkin-banner-walkin">
-      <span>No desk booked for today. Tap <strong>I've arrived</strong> at the building entrance to auto-book.</span>
+      <span>No desk allocated today. Tap <strong>I've arrived</strong> at the building entrance for instant walk-in assignment.</span>
       <button class="btn btn-sm btn-primary" onclick="simulateBuildingScanIn()">I've arrived</button>
     </div>`;
   })();
@@ -1033,30 +1039,7 @@ async function renderDashboard() {
 
     ${renderComfortProfile()}
 
-    ${suggestions.length > 0 ? `
-    <div class="card one-col">
-      <div class="card-header">
-        <span class="card-title">Smart Suggestions for Today</span>
-        <span class="pill pill-amber">Office day — no desk booked yet</span>
-      </div>
-      <div class="card-body">
-        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Based on your preferences (${currentUser.preferredNeighbourhood}).</p>
-        <div class="suggestion-cards">
-          ${suggestions.map(desk => `
-            <div class="suggestion-card" onclick="quickBook('${desk.id}','${today()}')">
-              <div class="suggestion-label">Recommended</div>
-              <div class="desk-id">${desk.id}</div>
-              <div class="desk-neighbourhood ${nbClass(desk.neighbourhood)}" style="margin:4px 0">${desk.neighbourhood}</div>
-              <div class="slot-bar" style="margin-top:6px">
-                <div class="slot-badge ${desk.amAvailable?'slot-free':'slot-taken'}">AM</div>
-                <div class="slot-badge ${desk.pmAvailable?'slot-free':'slot-taken'}">PM</div>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    </div>
-    ` : myTodayBookings.length > 0 ? `
+    ${myTodayBookings.length > 0 ? `
     <div class="card one-col">
       <div class="card-header"><span class="card-title">Today's Desks</span></div>
       <div class="card-body" style="padding:12px 16px">
@@ -1473,8 +1456,8 @@ async function renderMyBookings() {
       <div class="empty-state">
         <svg class="empty-state-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         <h3>No upcoming bookings</h3>
-        <p>You don't have any desk reservations. Head to Book a Desk to get started.</p>
-        <button class="btn btn-primary" onclick="navigate('book')">Book a Desk</button>
+        <p>Your desk will be allocated automatically the night before you declare an office day.</p>
+        <button class="btn btn-primary" onclick="navigate('declare')">Declare office days</button>
       </div>
     ` : `<div class="booking-list">${combined.map(item =>
         item.type === 'booking'
@@ -1918,6 +1901,35 @@ const DESK_COORDS = {
   'F-L3': { x: 8,  y: 60 },
 };
 
+function generateFloorPlanSVG(floorKey) {
+  const isFirst = floorKey === 'first';
+  const zones = [
+    { label: 'Window Bank',        x: 1,    y: 5,  w: 19,   h: 29,  fill: '#dbeafe', stroke: '#93c5fd' },
+    { label: 'Quiet Zone',         x: 70,   y: 5,  w: 28.5, h: 27,  fill: '#f0fdf4', stroke: '#86efac' },
+    { label: 'Core Desk Area',     x: 68,   y: 44, w: 30.5, h: 24,  fill: '#fef9c3', stroke: '#fde047' },
+    { label: 'Collaboration Zone', x: 1,    y: 44, w: 21,   h: 24,  fill: '#fdf4ff', stroke: '#d8b4fe' },
+  ];
+
+  const zoneRects = zones.map(z => `
+    <rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="1.5"
+          fill="${z.fill}" stroke="${z.stroke}" stroke-width="0.5"/>
+    <text x="${z.x + z.w / 2}" y="${z.y + 3.5}" text-anchor="middle"
+          font-size="2.8" fill="#64748b" font-family="system-ui,sans-serif">${z.label}</text>`).join('');
+
+  const corridorLines = `
+    <line x1="22" y1="2" x2="22" y2="98" stroke="#e2e8f0" stroke-width="0.4"/>
+    <line x1="67" y1="2" x2="67" y2="98" stroke="#e2e8f0" stroke-width="0.4"/>
+    <line x1="1" y1="36" x2="99" y2="36" stroke="#e2e8f0" stroke-width="0.4"/>
+    <rect x="1" y="1" width="98" height="98" rx="2" fill="none" stroke="#cbd5e1" stroke-width="0.6"/>`;
+
+  const floorLabel = `<text x="50" y="99" text-anchor="middle" font-size="2.2" fill="#94a3b8"
+    font-family="system-ui,sans-serif">${isFirst ? 'First Floor' : 'Ground Floor'} — London HQ</text>`;
+
+  return `data:image/svg+xml;utf8,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" style="background:#f8fafc">${corridorLines}${zoneRects}${floorLabel}</svg>`
+  )}`;
+}
+
 function renderFloorPlan() {
   if (!floorPlanDate) floorPlanDate = today();
   const container = document.getElementById('view-floorplan');
@@ -1932,7 +1944,8 @@ function renderFloorPlan() {
   const floorBookings = bookings.filter(b => b.desk?.floor === floorPlanFloor);
   const bookedDeskIds = new Set(floorBookings.map(b => b.deskId));
   const floorDesks = DESKS.filter(d => d.floor === floorPlanFloor);
-  const imgSrc = activePlan?.imageUrl || '';
+  const customImgSrc = activePlan?.imageUrl && !activePlan.imageUrl.startsWith('/floorplans/') ? activePlan.imageUrl : '';
+  const imgSrc = customImgSrc || generateFloorPlanSVG(activePlan?.floorKey || floorPlanFloor);
 
   const markers = floorDesks.map(desk => {
     const coords = DESK_COORDS[desk.id];
@@ -1983,7 +1996,7 @@ function renderFloorPlan() {
     </div>
 
     <div class="fp-wrap">
-      ${imgSrc ? `<img src="${imgSrc}" class="fp-img" alt="${activePlan.name}">` : `<div class="fp-img fp-img-placeholder"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.25"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg><div style="font-size:12px;color:var(--text-muted);margin-top:8px">No floor plan image — upload one in Admin</div></div>`}
+      <img src="${imgSrc}" class="fp-img" alt="${activePlan?.name || 'Floor plan'}" onerror="this.src=generateFloorPlanSVG('${floorPlanFloor}')">
       ${markers}
       <div style="position:absolute;bottom:8px;right:10px;font-size:11px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:4px">
         ${floorBookings.length} booked · ${floorDesks.length - bookedDeskIds.size} available
@@ -2029,7 +2042,6 @@ function fpShowDetail(deskId, date) {
         This desk is available on ${displayShortDate(date)}
       </div>`}
     <div class="modal-actions">
-      ${!booking ? `<button class="btn btn-primary" onclick="hideModal();navigate('book')">Book this desk</button>` : ''}
       <button class="btn btn-secondary" onclick="hideModal()">Close</button>
     </div>
   `);
@@ -2687,7 +2699,7 @@ function agentHandleNavigate(text) {
     toggleAgent();
     return { html: `Opening ${view.replace('-', ' ')}…`, chips: [] };
   }
-  return { html: 'Where would you like to go? I can open Dashboard, Book a Desk, My Bookings, Who\'s In, or Floor Plan.', chips: ['Dashboard', 'Book a Desk', 'Floor Plan'] };
+  return { html: 'Where would you like to go? I can open Dashboard, Declare, My Allocation, My Bookings, Who\'s In, or Floor Plan.', chips: ['Dashboard', 'Declare', 'My Allocation', 'Floor Plan'] };
 }
 
 function agentHandleHelp() {
@@ -3066,8 +3078,45 @@ function dismissAutoBook() {
 function simulateBuildingScanIn() {
   const abSettings = loadAutoBookAdminSettings();
   if (!abSettings.enableOnScan) { toast('Walk-in auto-booking is disabled by admin', 'info'); return; }
-  if (hasBookingToday(currentUser.id)) { toast('You already have a desk booked for today', 'info'); return; }
-  triggerAutoBook('scan');
+  hardBookOnArrival('scan');
+}
+
+function hardBookOnArrival(trigger) {
+  if (!currentUser) return;
+
+  // If already booked and checked in, nothing to do
+  if (hasBookingToday(currentUser.id)) {
+    const existing = getBookings({ userId: currentUser.id, date: today() }).find(b => !b.checkedIn);
+    if (existing) { checkInBooking(existing.id); }
+    else { toast('Already checked in for today', 'info'); }
+    return;
+  }
+
+  // Confirm soft allocation if one exists
+  const alloc = getAllocationForUser(currentUser.id, today());
+  if (alloc && alloc.status !== 'released' && alloc.status !== 'confirmed') {
+    try {
+      createBooking({ userId: currentUser.id, deskId: alloc.deskId, date: today(), slot: 'full' });
+      const allocs = loadAllocations();
+      const a = allocs.find(a => a.id === alloc.id);
+      if (a) { a.status = 'confirmed'; a.confirmedAt = new Date().toISOString(); }
+      saveAllocations(allocs);
+      checkInBookingLocal(loadBookings().filter(b => b.userId === currentUser.id && b.date === today()).slice(-1)[0]?.id);
+      const office = loadOfficeSettings();
+      const msg = trigger === 'scan'
+        ? `Badge scanned at ${office.name}`
+        : `Near ${office.name}`;
+      sendPerchNotification('Desk confirmed', `${alloc.deskId} is yours today — ${msg}`);
+      toast(`Welcome! ${alloc.deskId} confirmed from your allocation`, 'success');
+      renderDashboard();
+    } catch (e) {
+      toast(e.message || 'Could not confirm allocation', 'error');
+    }
+    return;
+  }
+
+  // No allocation — walk-in pool assignment
+  processWalkIn(currentUser.id);
 }
 
 // ── Proximity detection ────────────────────────────────────────────────────
@@ -3092,7 +3141,7 @@ function checkProximityAutoBook(pos) {
   const radius = abSettings.proximityRadiusM ?? office.radiusM ?? 300;
   if (distanceMeters(pos.coords.latitude, pos.coords.longitude, office.lat, office.lng) <= radius) {
     autoBookTriggeredThisSession = true;
-    triggerAutoBook('proximity');
+    hardBookOnArrival('proximity');
   }
 }
 
@@ -3139,11 +3188,7 @@ function checkAnchorDayNotifications() {
 }
 
 function navigateToBookDate(dateStr) {
-  navigate('book');
-  requestAnimationFrame(() => {
-    const input = document.querySelector('#view-book input[type=date]');
-    if (input) { input.value = dateStr; input.dispatchEvent(new Event('change')); }
-  });
+  navigate('declare');
 }
 
 function requestNotificationPermission() {
