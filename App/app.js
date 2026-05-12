@@ -3556,51 +3556,19 @@ function renderDeclareView() {
 }
 
 function declareDay(date, status) {
+  const container = document.getElementById('view-declare');
+  const scrollTop = container ? container.scrollTop : 0;
   const existing = getDeclaration(currentUser.id, date);
   if (existing?.status === status) {
     setDeclaration(currentUser.id, date, 'none');
     toast('Declaration cleared', 'info');
-    updateDeclareRow(date, null);
   } else {
     setDeclaration(currentUser.id, date, status);
     const labels = { yes: 'office day', no: 'working from home', maybe: 'maybe in office' };
-    toast(parseDate(date).toLocaleDateString('en-GB',{weekday:'long'}) + ' — ' + labels[status], 'success');
-    updateDeclareRow(date, status);
+    toast(parseDate(date).toLocaleDateString('en-GB', { weekday: 'long' }) + ' — ' + labels[status], 'success');
   }
-}
-
-function updateDeclareRow(date, status) {
-  const row = document.querySelector(`[data-declare-row="${date}"]`);
-  if (!row) return;
-
-  const colours = {
-    yes:   { bg: '#E6F2EE', border: '#A7D7C5' },
-    no:    { bg: '#FEE2E2', border: '#FECACA' },
-    maybe: { bg: '#FEF3C7', border: '#FDE68A' },
-    null:  { bg: 'var(--bg)', border: 'var(--border)' },
-  };
-  const c = colours[status] || colours.null;
-  row.style.background   = c.bg;
-  row.style.borderColor  = c.border;
-
-  const yesBtn   = document.querySelector(`[data-declare-btn="${date}-yes"]`);
-  const maybeBtn = document.querySelector(`[data-declare-btn="${date}-maybe"]`);
-  const noBtn    = document.querySelector(`[data-declare-btn="${date}-no"]`);
-
-  if (yesBtn) yesBtn.className   = `btn btn-sm ${status === 'yes'   ? 'btn-primary' : 'btn-secondary'}`;
-  if (maybeBtn) maybeBtn.className = `btn btn-sm ${status === 'maybe' ? 'btn-primary' : 'btn-secondary'}`;
-  if (noBtn) {
-    noBtn.className = `btn btn-sm ${status === 'no' ? '' : 'btn-secondary'}`;
-    noBtn.style.cssText = `${status === 'no' ? 'background:var(--danger);color:white;border-color:var(--danger)' : ''};min-width:44px`;
-  }
-
-  // Update this-week count pill
-  const mon = weekMonday(today());
-  const count = loadDeclarations().filter(d =>
-    d.userId === currentUser.id && d.date >= mon && d.date <= addDays(mon, 4) && d.status === 'yes'
-  ).length;
-  const pill = document.querySelector('.declare-week-pill');
-  if (pill) pill.textContent = `${count} day${count !== 1 ? 's' : ''} this week`;
+  renderDeclareView();
+  if (container) container.scrollTop = scrollTop;
 }
 
 // ══════════════════════════════════════════════════════════════════════════
