@@ -239,7 +239,10 @@ function getDesks({ floor, date } = {}) {
 // ── Utilities ──────────────────────────────────────────────────────────────
 
 function toDateStr(d) { return d.toISOString().slice(0, 10); }
-function today() { return toDateStr(new Date()); }
+function today() {
+  const n = new Date();
+  return [n.getFullYear(), String(n.getMonth()+1).padStart(2,'0'), String(n.getDate()).padStart(2,'0')].join('-');
+}
 
 function parseDate(str) {
   const [y, m, d] = str.split('-').map(Number);
@@ -260,17 +263,19 @@ function formatTime(isoStr) {
 }
 
 function weekMonday(dateStr) {
-  const d = parseDate(dateStr);
-  const diff = d.getDay() === 0 ? -6 : 1 - d.getDay();
-  const m = new Date(d);
-  m.setDate(d.getDate() + diff);
-  return toDateStr(m);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  const dow = date.getUTCDay();
+  const diff = dow === 0 ? -6 : 1 - dow;
+  date.setUTCDate(date.getUTCDate() + diff);
+  return date.toISOString().slice(0, 10);
 }
 
 function addDays(dateStr, n) {
-  const d = parseDate(dateStr);
-  d.setDate(d.getDate() + n);
-  return toDateStr(d);
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  date.setUTCDate(date.getUTCDate() + n);
+  return date.toISOString().slice(0, 10);
 }
 
 function getWeekDates(mondayStr) {
@@ -3440,16 +3445,16 @@ function renderDeclareView() {
   const container = document.getElementById('view-declare');
   if (!container) return;
 
-  const isMonday = parseDate(today()).getDay() === 1;
+  const todayStr = today();
+  const isMonday = parseDate(todayStr).getDay() === 1;
 
   // Show next 14 weekdays
   const dates = [];
-  const d = new Date();
-  d.setDate(d.getDate() + 1);
+  let offset = 1;
   while (dates.length < 14) {
-    const dow = d.getDay();
-    if (dow !== 0 && dow !== 6) dates.push(toDateStr(d));
-    d.setDate(d.getDate() + 1);
+    const next = addDays(todayStr, offset++);
+    const dow = new Date(next + 'T00:00:00Z').getUTCDay();
+    if (dow !== 0 && dow !== 6) dates.push(next);
   }
 
   const calConfig = loadCalendarConfig();
