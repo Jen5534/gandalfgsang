@@ -1927,7 +1927,7 @@ function renderFloorPlan() {
   const tabs = plans.map(p => `
     <button class="floor-tab${floorKey === p.floorKey ? ' active' : ''}"
             onclick="fpSetFloor('${p.floorKey}')">
-      ${escHtml(p.name)}${p.building !== plans[0]?.building ? ` <span style="font-size:10px;opacity:0.7">(${escHtml(p.building)})</span>` : ''}
+      ${p.name}${p.building !== plans[0]?.building ? ` <span style="font-size:10px;opacity:0.7">(${p.building})</span>` : ''}
     </button>`).join('');
 
   const bookingRows = floorBookings.length
@@ -1943,8 +1943,8 @@ function renderFloorPlan() {
                onclick="fpShowDetail('${b.deskId}','${floorPlanDate}')">
             <div class="fp-avatar" style="background:${avatarColor(b.user.fullName)}">${initials(b.user.fullName)}</div>
             <div>
-              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${escHtml(b.user.fullName)}${isMe ? ' <span style="color:var(--primary);font-weight:500">(you)</span>' : ''}</div>
-              <div style="font-size:11px;color:var(--text-secondary)">${b.deskId}${b.desk?.neighbourhood ? ' · ' + escHtml(b.desk.neighbourhood) : ''}</div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${b.user.fullName}${isMe ? ' <span style="color:var(--primary);font-weight:500">(you)</span>' : ''}</div>
+              <div style="font-size:11px;color:var(--text-secondary)">${b.deskId}${b.desk?.neighbourhood ? ' · ' + b.desk.neighbourhood : ''}</div>
             </div>
           </div>`;
       }).join('')
@@ -1966,14 +1966,14 @@ function renderFloorPlan() {
     </div>
 
     <div class="fp-wrap">
-      <img src="${imgSrc}" class="fp-img" alt="${escHtml(activePlan?.name || 'Floor plan')}"
+      <img src="${imgSrc}" class="fp-img" alt="${activePlan?.name || 'Floor plan'}"
            onerror="this.onerror=null;this.src=generateFloorPlanSVG('${floorKey}')">
     </div>
 
     <div style="margin-top:20px">
       <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;
                   color:var(--text-secondary);margin-bottom:10px">
-        ${escHtml(activePlan?.name || 'Floor')} — bookings for ${floorPlanDate}
+        ${activePlan?.name || 'Floor'} — bookings for ${floorPlanDate}
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">
         ${bookingRows}
