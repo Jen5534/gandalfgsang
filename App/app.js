@@ -13,6 +13,22 @@ const OFFICE_LAT = 51.5074;
 const OFFICE_LNG = -0.1278;
 const OFFICE_RADIUS_M = 300;
 
+const ADMIN_SETTINGS_KEY = 'mdb_admin_settings';
+
+function loadOfficeSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem(ADMIN_SETTINGS_KEY) || 'null');
+    return { name: 'London HQ', lat: OFFICE_LAT, lng: OFFICE_LNG, radiusM: OFFICE_RADIUS_M, ...s?.office };
+  } catch { return { name: 'London HQ', lat: OFFICE_LAT, lng: OFFICE_LNG, radiusM: OFFICE_RADIUS_M }; }
+}
+
+function loadAutoBookAdminSettings() {
+  try {
+    const s = JSON.parse(localStorage.getItem(ADMIN_SETTINGS_KEY) || 'null');
+    return { enableOnScan: true, enableOnProximity: true, proximityRadiusM: 300, ...s?.autoBook };
+  } catch { return { enableOnScan: true, enableOnProximity: true, proximityRadiusM: 300 }; }
+}
+
 // ── Desk data ──────────────────────────────────────────────────────────────
 
 const DESKS = [
@@ -318,6 +334,7 @@ async function initLogin() {
 
 function loginAs(user) {
   currentUser = user;
+  autoBookTriggeredThisSession = false;
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('app').classList.remove('hidden');
 
@@ -333,6 +350,8 @@ function loginAs(user) {
   });
 
   navigate('dashboard');
+  requestNotificationPermission();
+  startProximityWatch();
 }
 
 async function ssoLogin() {
@@ -355,6 +374,8 @@ async function ssoLogin() {
 }
 
 function logout() {
+  stopProximityWatch();
+  autoBookTriggeredThisSession = false;
   currentUser = null;
   document.getElementById('app').classList.add('hidden');
   document.getElementById('login-screen').classList.remove('hidden');
@@ -401,8 +422,9 @@ async function tryAutoCheckIn() {
 
   navigator.geolocation.getCurrentPosition(
     async (pos) => {
-      const dist = distanceMeters(pos.coords.latitude, pos.coords.longitude, OFFICE_LAT, OFFICE_LNG);
-      if (dist <= OFFICE_RADIUS_M) {
+      const office = loadOfficeSettings();
+      const dist = distanceMeters(pos.coords.latitude, pos.coords.longitude, office.lat, office.lng);
+      if (dist <= office.radiusM) {
         for (const b of unchecked) {
           checkInBookingLocal(b.id);
         }
@@ -840,6 +862,16 @@ async function renderDashboard() {
     </div>`;
   })();
 
+  const walkInBanner = (() => {
+    if (myTodayBookings.length > 0) return '';
+    if (!loadAutoBookAdminSettings().enableOnScan) return '';
+    if (todayStatus !== 'office' && !todayAnchor) return '';
+    return `<div class="checkin-banner checkin-banner-walkin">
+      <span>No desk booked for today. Tap <strong>I've arrived</strong> at the building entrance to auto-book.</span>
+      <button class="btn btn-sm btn-primary" onclick="simulateBuildingScanIn()">I've arrived</button>
+    </div>`;
+  })();
+
   container.innerHTML = `
     <div class="page-header">
       <h1>Good ${greetingTime()}, ${currentUser.fullName.split(' ')[0]}</h1>
@@ -847,6 +879,7 @@ async function renderDashboard() {
     </div>
 
     ${checkinBanner}
+    ${walkInBanner}
 
     <div class="stats-row">
       <div class="stat-card">
@@ -2404,6 +2437,180 @@ function addDelegateAndRefresh() {
 function removeDelegateAndRefresh(userId) {
   removeDelegate(userId);
   renderDelegatesModal();
+}
+
+// ── Walk-in auto-booking ───────────────────────────────────────────────────
+
+const AUTO_BOOK_DISMISSED_KEY = 'mdb_auto_book_dismissed';
+let proximityWatchId = null;
+let autoBookTriggeredThisSession = false;
+
+function hasBookingToday(userId) {
+  return getBookings({ userId, date: today() }).length > 0;
+}
+
+function wasAutoBookDismissedToday() {
+  try {
+    const dates = JSON.parse(localStorage.getItem(AUTO_BOOK_DISMISSED_KEY) || '[]');
+    return dates.includes(today());
+  } catch { return false; }
+}
+
+function markAutoBookDismissedToday() {
+  try {
+    const dates = JSON.parse(localStorage.getItem(AUTO_BOOK_DISMISSED_KEY) || '[]').filter(d => d >= today());
+    if (!dates.includes(today())) dates.push(today());
+    localStorage.setItem(AUTO_BOOK_DISMISSED_KEY, JSON.stringify(dates));
+  } catch {}
+}
+
+function findBestAutoBookDesk(date) {
+  const available = getDesks({ date }).filter(d => d.available);
+  if (available.length === 0) return null;
+  const todayBookings = getBookings({ date });
+  const teammateNbs = [...new Set(
+    todayBookings
+      .filter(b => b.user?.team === currentUser.team && b.userId !== currentUser.id)
+      .map(b => DESKS.find(d => d.id === b.deskId)?.neighbourhood)
+      .filter(Boolean)
+  )];
+  return available
+    .map(d => ({ ...d, autoScore: scoreDesk(d, currentUser) + (teammateNbs.includes(d.neighbourhood) ? 10 : 0) }))
+    .sort((a, b) => b.autoScore - a.autoScore)[0];
+}
+
+function getAutoBookNearbyTeammates(deskId, date) {
+  const desk = DESKS.find(d => d.id === deskId);
+  if (!desk) return [];
+  return getBookings({ date })
+    .filter(b => {
+      const bd = DESKS.find(d => d.id === b.deskId);
+      return bd?.neighbourhood === desk.neighbourhood && b.user?.team === currentUser.team && b.userId !== currentUser.id;
+    })
+    .map(b => b.user).filter(Boolean);
+}
+
+function triggerAutoBook(trigger) {
+  if (!currentUser) return;
+  if (hasBookingToday(currentUser.id)) return;
+  if (wasAutoBookDismissedToday()) return;
+  autoBookTriggeredThisSession = true;
+
+  const desk = findBestAutoBookDesk(today());
+  if (!desk) {
+    toast('No desk available — the office may be at capacity', 'error');
+    return;
+  }
+
+  const teammates = getAutoBookNearbyTeammates(desk.id, today());
+  const office = loadOfficeSettings();
+  const triggerMsg = trigger === 'scan'
+    ? `Your scan-in at <strong>${office.name}</strong> was recognised`
+    : `You're near <strong>${office.name}</strong>`;
+
+  const featureTags = desk.features
+    .map(f => `<span class="feature-tag ft-${f}">${featureLabel(f)}</span>`)
+    .join('');
+
+  showModal(`
+    <div style="text-align:center;padding:8px 0 4px">
+      <div style="font-size:36px;margin-bottom:10px">📍</div>
+      <h3 style="font-size:17px;font-weight:700;margin-bottom:6px;color:var(--text)">No desk booked — we've found one for you</h3>
+      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:20px;line-height:1.5">${triggerMsg}. You don't have a desk booked for today.</p>
+    </div>
+    <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:16px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:22px;font-weight:700;color:var(--text)">${desk.id}</span>
+        <span class="pill pill-green">${desk.floor === 'ground' ? 'Ground' : 'First'} Floor</span>
+      </div>
+      <div class="desk-neighbourhood ${nbClass(desk.neighbourhood)}" style="display:inline-block;margin-bottom:${desk.features.length > 0 || teammates.length > 0 ? '10' : '0'}px">${desk.neighbourhood}</div>
+      ${desk.features.length > 0 ? `<div class="desk-features" style="margin-bottom:${teammates.length > 0 ? '10' : '0'}px">${featureTags}</div>` : ''}
+      ${teammates.length > 0 ? `<div style="font-size:12px;color:var(--text-secondary);padding-top:8px;border-top:1px solid var(--border)">
+        <span style="font-weight:600;color:var(--primary)">Near your team:</span>
+        ${teammates.slice(0, 3).map(u => u.fullName.split(' ')[0]).join(', ')}${teammates.length > 3 ? ` +${teammates.length - 3} more` : ''}
+      </div>` : ''}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-primary btn-full" onclick="confirmAutoBook('${desk.id}','${today()}')">Book Desk ${desk.id} for Today</button>
+      <button class="btn btn-secondary btn-full" onclick="hideModal();navigate('book')">Choose a Different Desk</button>
+      <button class="btn btn-ghost btn-full" onclick="dismissAutoBook()">Not today</button>
+    </div>
+  `);
+}
+
+function confirmAutoBook(deskId, date) {
+  hideModal();
+  try {
+    createBooking({ userId: currentUser.id, deskId, date, slot: 'full' });
+    sendPerchNotification('Desk booked', `Desk ${deskId} booked for you at ${loadOfficeSettings().name} — full day`);
+    toast(`Desk ${deskId} booked for today`, 'success');
+    renderDashboard();
+  } catch (e) {
+    toast(e.message || 'Could not book desk', 'error');
+  }
+}
+
+function dismissAutoBook() {
+  hideModal();
+  markAutoBookDismissedToday();
+}
+
+// ── Building scan-in trigger ───────────────────────────────────────────────
+// In production this function is called via a webhook from the access-control
+// system when the user's badge is scanned at the entrance.
+
+function simulateBuildingScanIn() {
+  const abSettings = loadAutoBookAdminSettings();
+  if (!abSettings.enableOnScan) { toast('Walk-in auto-booking is disabled by admin', 'info'); return; }
+  if (hasBookingToday(currentUser.id)) { toast('You already have a desk booked for today', 'info'); return; }
+  triggerAutoBook('scan');
+}
+
+// ── Proximity detection ────────────────────────────────────────────────────
+
+function startProximityWatch() {
+  if (!navigator.geolocation) return;
+  if (!loadAutoBookAdminSettings().enableOnProximity) return;
+  if (proximityWatchId !== null) navigator.geolocation.clearWatch(proximityWatchId);
+  proximityWatchId = navigator.geolocation.watchPosition(
+    pos => checkProximityAutoBook(pos),
+    () => {},
+    { enableHighAccuracy: false, maximumAge: 60000, timeout: 30000 }
+  );
+}
+
+function checkProximityAutoBook(pos) {
+  if (autoBookTriggeredThisSession || !currentUser) return;
+  if (hasBookingToday(currentUser.id) || wasAutoBookDismissedToday()) return;
+  const abSettings = loadAutoBookAdminSettings();
+  if (!abSettings.enableOnProximity) return;
+  const office = loadOfficeSettings();
+  const radius = abSettings.proximityRadiusM ?? office.radiusM ?? 300;
+  if (distanceMeters(pos.coords.latitude, pos.coords.longitude, office.lat, office.lng) <= radius) {
+    autoBookTriggeredThisSession = true;
+    triggerAutoBook('proximity');
+  }
+}
+
+function stopProximityWatch() {
+  if (proximityWatchId !== null) {
+    navigator.geolocation.clearWatch(proximityWatchId);
+    proximityWatchId = null;
+  }
+}
+
+// ── Push notifications ─────────────────────────────────────────────────────
+
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function sendPerchNotification(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body, icon: 'perchlogo.png', tag: 'perch-auto-book' });
+  }
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────

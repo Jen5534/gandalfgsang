@@ -71,6 +71,11 @@ function defaultSettings() {
       lng: -0.1278,
       radiusM: 300,
     },
+    autoBook: {
+      enableOnScan: true,
+      enableOnProximity: true,
+      proximityRadiusM: 300,
+    },
     disabledDesks: [],
     buildings: ['London HQ'],
     neighbourhoods: [
@@ -95,6 +100,7 @@ function loadSettings() {
       bookingRules: { ...d.bookingRules, ...s.bookingRules },
       capacity:     { ...d.capacity,     ...s.capacity },
       office:       { ...d.office,       ...s.office },
+      autoBook:     { ...d.autoBook,     ...s.autoBook },
       disabledDesks:  s.disabledDesks  || [],
       buildings:      s.buildings      || d.buildings,
       neighbourhoods: s.neighbourhoods || d.neighbourhoods,
@@ -1059,6 +1065,40 @@ function renderOfficeSettings() {
           </div>
         </div>
 
+        <div class="settings-section">
+          <div class="settings-section-title">Walk-in Auto-booking</div>
+          <div class="field-hint" style="margin-bottom:16px">When enabled, Perch will automatically find and offer a suitable desk to users who arrive without a booking.</div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-label">Auto-book on building scan-in</div>
+              <div class="toggle-desc">Triggered when a user's access card is scanned at the entrance</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="ab-enableOnScan" ${s.autoBook.enableOnScan ? 'checked' : ''}>
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <div class="toggle-label">Auto-book on proximity detection</div>
+              <div class="toggle-desc">Triggered when the user's phone detects they are near the office</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="ab-enableOnProximity" ${s.autoBook.enableOnProximity ? 'checked' : ''}>
+              <div class="toggle-track"></div>
+            </label>
+          </div>
+          <div class="field-group" style="margin-top:12px">
+            <label class="field-label">Proximity detection radius (metres)</label>
+            <div class="range-row">
+              <input type="range" id="ab-proximityRadiusM" min="50" max="2000" step="50" value="${s.autoBook.proximityRadiusM}"
+                oninput="document.getElementById('ab-radius-val').textContent=this.value+'m'">
+              <div class="range-value" id="ab-radius-val">${s.autoBook.proximityRadiusM}m</div>
+            </div>
+            <div class="field-hint">How close to the office a user needs to be to trigger proximity auto-booking (independent of the check-in radius above)</div>
+          </div>
+        </div>
+
         <div class="settings-save-bar">
           <button class="btn btn-secondary" onclick="renderOfficeSettings()">Discard</button>
           <button class="btn btn-primary" onclick="saveOfficeSettings()">Save Changes</button>
@@ -1107,6 +1147,11 @@ function saveOfficeSettings() {
     lat:     parseFloat(document.getElementById('o-lat').value)  || 51.5074,
     lng:     parseFloat(document.getElementById('o-lng').value)  || -0.1278,
     radiusM: parseInt(document.getElementById('o-radius').value) || 300,
+  };
+  s.autoBook = {
+    enableOnScan:      document.getElementById('ab-enableOnScan').checked,
+    enableOnProximity: document.getElementById('ab-enableOnProximity').checked,
+    proximityRadiusM:  parseInt(document.getElementById('ab-proximityRadiusM').value) || 300,
   };
   saveSettings(s);
   toast('Office settings saved');
