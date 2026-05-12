@@ -25,6 +25,14 @@
   </div>
 
   <div id="app" class="app hidden">
+    <div class="mobile-top-bar" id="mobile-top-bar">
+      <button class="mobile-menu-toggle" onclick="toggleMobileSidebar()" aria-label="Open menu">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <span class="mobile-top-title">Perch</span>
+      <span class="mobile-top-view" id="mobile-top-view">Dashboard</span>
+    </div>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleMobileSidebar()"></div>
     <aside class="sidebar">
       <div class="sidebar-header">
         <img src="perchlogo.png" width="40" height="40" alt="Perch">
@@ -76,6 +84,15 @@
           <button class="btn-signout" id="logout-btn">Sign out</button>
           <button class="btn-switch" id="switch-btn">Switch account</button>
           <button class="btn-switch" onclick="showDelegatesModal()">Delegates</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <button id="a11y-theme-btn" class="btn-a11y" onclick="toggleTheme()" title="Switch to dark mode" aria-label="Toggle theme">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            Theme
+          </button>
+          <button id="a11y-font-btn" class="btn-a11y" onclick="cycleFontSize()" title="Font size: normal" aria-label="Cycle font size">
+            <span class="a11y-font-label">A</span> Size
+          </button>
         </div>
         <a href="admin.html" class="btn-admin" title="Admin Portal">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

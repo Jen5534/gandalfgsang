@@ -361,10 +361,29 @@ function hideModal() {
 
 // ── Navigation ─────────────────────────────────────────────────────────────
 
+function toggleMobileSidebar(forceClose) {
+  const sidebar  = document.querySelector('.sidebar');
+  const overlay  = document.getElementById('sidebar-overlay');
+  if (!sidebar) return;
+  const isOpen = sidebar.classList.contains('mobile-open');
+  const newOpen = forceClose ? false : !isOpen;
+  sidebar.classList.toggle('mobile-open', newOpen);
+  if (overlay) overlay.classList.toggle('visible', newOpen);
+}
+
+const VIEW_LABELS = {
+  dashboard: 'Dashboard', 'my-bookings': 'My Bookings', 'whos-in': "Who's In",
+  floorplan: 'Floor Plan', feedback: 'Feedback', 'team-bookings': 'Team Bookings',
+  declare: 'Declare', 'my-allocation': 'My Allocation'
+};
+
 function navigate(view) {
   document.querySelectorAll('.nav-item').forEach(el => el.classList.toggle('active', el.dataset.view === view));
   document.querySelectorAll('.view').forEach(el => el.classList.add('hidden'));
   document.getElementById(`view-${view}`).classList.remove('hidden');
+  const lbl = document.getElementById('mobile-top-view');
+  if (lbl) lbl.textContent = VIEW_LABELS[view] || view;
+  toggleMobileSidebar(true);
   if (view === 'dashboard') renderDashboard();
   else if (view === 'book') renderDeclareView(); // manual booking removed — redirect to declare
   else if (view === 'my-bookings') renderMyBookings();
@@ -1922,7 +1941,7 @@ function renderFloorPlan() {
   // Always load from the floorplans folder — imageUrl in settings only used for
   // admin-uploaded overrides (base64). For path-based URLs always rebuild from floorKey.
   const storedUrl = activePlan?.imageUrl || '';
-  const imgSrc = storedUrl.startsWith('data:') ? storedUrl : `/floorplans/${floorKey}.png`;
+  const imgSrc = storedUrl.startsWith('data:') ? storedUrl : `../floorplans/${floorKey}.png`;
 
   const tabs = plans.map(p => `
     <button class="floor-tab${floorKey === p.floorKey ? ' active' : ''}"
@@ -2406,9 +2425,10 @@ function renderAgentMsgs() {
 
 function updateAgentChips(chips) {
   const el = document.getElementById('agent-chips');
-  el.innerHTML = chips.map(c =>
-    `<button class="agent-chip" onclick="agentChipClick(${JSON.stringify(c)})">${c}</button>`
-  ).join('');
+  el.innerHTML = chips.map(c => {
+    const safe = c.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    return `<button class="agent-chip" data-chip="${safe}" onclick="agentChipClick(this.dataset.chip)">${c}</button>`;
+  }).join('');
 }
 
 function agentChipClick(text) {
@@ -2845,6 +2865,25 @@ function renderFeedback() {
             <input type="hidden" id="fb-rating" value="">
           </div>
 
+          <div style="margin-bottom:18px;display:flex;gap:16px;flex-wrap:wrap">
+            <div style="flex:1;min-width:120px">
+              <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:8px">Temperature</div>
+              <div style="display:flex;gap:8px">
+                <button type="button" class="env-rate-btn" id="fb-temp-hot" onclick="setEnvRating('temp','hot')">🔥 Hot</button>
+                <button type="button" class="env-rate-btn" id="fb-temp-cold" onclick="setEnvRating('temp','cold')">🧊 Cold</button>
+              </div>
+              <input type="hidden" id="fb-temp" value="">
+            </div>
+            <div style="flex:1;min-width:120px">
+              <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:8px">Noise Level</div>
+              <div style="display:flex;gap:8px">
+                <button type="button" class="env-rate-btn" id="fb-noise-quiet" onclick="setEnvRating('noise','quiet')">🔇 Quiet</button>
+                <button type="button" class="env-rate-btn" id="fb-noise-loud" onclick="setEnvRating('noise','loud')">📢 Loud</button>
+              </div>
+              <input type="hidden" id="fb-noise" value="">
+            </div>
+          </div>
+
           <div style="margin-bottom:14px">
             <label style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);display:block;margin-bottom:6px">Subject</label>
             <input type="text" id="fb-subject" class="field-input" placeholder="Brief summary…" maxlength="80">
@@ -2916,17 +2955,26 @@ function setFeedbackRating(val) {
   });
 }
 
+function setEnvRating(type, val) {
+  document.getElementById(`fb-${type}`).value = val;
+  document.querySelectorAll(`.env-rate-btn[id^="fb-${type}-"]`).forEach(btn => {
+    btn.classList.toggle('env-rate-active', btn.id === `fb-${type}-${val}`);
+  });
+}
+
 function doSubmitFeedback() {
   const type    = document.querySelector('input[name="fb-type"]:checked')?.value || 'other';
   const subject = document.getElementById('fb-subject').value.trim();
   const message = document.getElementById('fb-message').value.trim();
   const rating  = parseInt(document.getElementById('fb-rating').value) || null;
   const anon    = document.getElementById('fb-anon').checked;
+  const temp    = document.getElementById('fb-temp')?.value || null;
+  const noise   = document.getElementById('fb-noise')?.value || null;
 
   if (!subject) { toast('Please add a subject', 'error'); return; }
   if (!message) { toast('Please add some detail', 'error'); return; }
 
-  submitFeedback({ type, subject, message, rating, anonymous: anon });
+  submitFeedback({ type, subject, message, rating, anonymous: anon, temperature: temp, noiseLevel: noise });
   toast('Thank you — your feedback has been submitted', 'success');
   renderFeedback();
 }
@@ -3276,6 +3324,7 @@ window.addEventListener('resize', () => { if (mobilePreviewOpen) updateMobileFra
 // ── Init ───────────────────────────────────────────────────────────────────
 
 async function init() {
+  initAccessibility();
   document.getElementById('logout-btn').addEventListener('click', logout);
   document.getElementById('switch-btn').addEventListener('click', switchAccount);
   document.getElementById('modal-overlay').addEventListener('click', e => {
@@ -4381,6 +4430,34 @@ function simulateCalendarSync() {
     return;
   }
   showCalendarSuggestions(suggestions);
+}
+
+// ── Accessibility ────────────────────────────────────────────────────────────
+
+function toggleTheme() {
+  const isDark = document.documentElement.classList.toggle('dark-mode');
+  localStorage.setItem('perch_theme', isDark ? 'dark' : 'light');
+  const btn = document.getElementById('a11y-theme-btn');
+  if (btn) btn.title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+}
+
+function cycleFontSize() {
+  const sizes = ['normal', 'large', 'larger'];
+  const current = document.documentElement.dataset.fontSize || 'normal';
+  const next = sizes[(sizes.indexOf(current) + 1) % sizes.length];
+  document.documentElement.dataset.fontSize = next;
+  localStorage.setItem('perch_fontsize', next);
+  const btn = document.getElementById('a11y-font-btn');
+  if (btn) btn.title = `Font size: ${next}`;
+  const labels = { normal: 'A', large: 'A+', larger: 'A++' };
+  if (btn) btn.querySelector('.a11y-font-label').textContent = labels[next];
+}
+
+function initAccessibility() {
+  const theme = localStorage.getItem('perch_theme');
+  if (theme === 'dark') document.documentElement.classList.add('dark-mode');
+  const fontSize = localStorage.getItem('perch_fontsize');
+  if (fontSize) document.documentElement.dataset.fontSize = fontSize;
 }
 
 document.addEventListener('DOMContentLoaded', init);
