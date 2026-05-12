@@ -1,0 +1,26 @@
+{
+  "name": "gandalfgsang",
+  "version": "1.0.0",
+  "description": "**Team:** Gandalf's Gang &nbsp;|&nbsp; **Code:** T-005 &nbsp;|&nbsp; **Captain:** Paul Bednall",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jen5534/gandalfgsang.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Jen5534/gandalfgsang/issues"
+  },
+  "homepage": "https://github.com/Jen5534/gandalfgsang#readme",
+  "dependencies": {
+    "pptxgenjs": "^4.0.1",
+    "puppeteer": "^24.43.1"
+  }
+}
