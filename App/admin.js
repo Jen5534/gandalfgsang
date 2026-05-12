@@ -2288,6 +2288,112 @@ function renderAiAnalysis() {
   `;
 }
 
+// ── Allocation Engine (standalone — does not depend on app.js) ────────────────
+
+function _aLoadAllocations()  { try { return JSON.parse(localStorage.getItem('mdb_allocations')||'[]'); } catch { return []; } }
+function _aSaveAllocations(a) { localStorage.setItem('mdb_allocations', JSON.stringify(a)); }
+function _aLoadDeclarations() { try { return JSON.parse(localStorage.getItem('mdb_declarations')||'[]'); } catch { return []; } }
+function _aLoadPowerBlocks()  { try { return JSON.parse(localStorage.getItem('mdb_power_blocks')||'[]'); } catch { return []; } }
+function _aGetPowerBlocksForDate(date) { return _aLoadPowerBlocks().filter(pb => pb.date === date && pb.status !== 'cancelled'); }
+function _aLoadNoshowRecords(){ try { return JSON.parse(localStorage.getItem('mdb_noshow_records')||'{}'); } catch { return {}; } }
+function _aNoshowPriority(userId) {
+  const rec = _aLoadNoshowRecords()[userId] || {};
+  const month = new Date().toISOString().slice(0, 7);
+  if (!rec.month || rec.month !== month) return 1.0;
+  return rec.count >= 3 ? 0.7 : rec.count >= 2 ? 0.85 : 1.0;
+}
+function _aLoadExtPrefs(userId) { try { return JSON.parse(localStorage.getItem('mdb_user_ext_prefs_' + userId)||'null') || {}; } catch { return {}; } }
+function _aLoadAllocSettings(){ try { return JSON.parse(localStorage.getItem('mdb_alloc_settings')||'null') || { walkInPoolPct: 20 }; } catch { return { walkInPoolPct: 20 }; } }
+function _aLoadAllocLogs()    { try { return JSON.parse(localStorage.getItem('mdb_alloc_logs')||'[]'); } catch { return []; } }
+function _aSaveAllocLogs(l)   { localStorage.setItem('mdb_alloc_logs', JSON.stringify(l)); }
+function _aLoadBookings()     { try { return JSON.parse(localStorage.getItem(BOOKINGS_KEY)||'[]'); } catch { return []; } }
+function _aGenId() { return crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2); }
+function _aDayKey(str) { return ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][parseDate(str).getDay()]; }
+function _aScoreDesk(desk, user) {
+  let s = 0;
+  if (desk.neighbourhood === user.preferredNeighbourhood) s += 3;
+  for (const f of desk.features) if ((user.deskPreferences || []).includes(f)) s += 1;
+  if (user.accessibilityNeeds && desk.features.includes('accessible-desk')) s += 2;
+  const ep = _aLoadExtPrefs(user.id);
+  if ((ep.favoriteDeskIds || []).includes(desk.id)) s += 4;
+  return s;
+}
+
+function runAllocationEngine(date) {
+  const bookings = _aLoadBookings();
+  const existingAllocs = _aLoadAllocations().filter(a => a.date !== date);
+
+  const decls = _aLoadDeclarations().filter(d => d.date === date && (d.status === 'yes' || d.status === 'maybe'));
+  decls.sort((a, b) => a.status !== b.status ? (a.status === 'yes' ? -1 : 1) : (a.createdAt || '').localeCompare(b.createdAt || ''));
+
+  const powerBlocks = _aGetPowerBlocksForDate(date);
+  const assignedDesks = new Set();
+  bookings.filter(b => b.date === date).forEach(b => assignedDesks.add(b.deskId));
+  powerBlocks.forEach(pb => (pb.deskIds || []).forEach(id => assignedDesks.add(id)));
+
+  const settings = _aLoadAllocSettings();
+  const adminS = JSON.parse(localStorage.getItem(ADMIN_SETTINGS_KEY) || 'null');
+  const disabledDesks = adminS?.disabledDesks || [];
+  const enabledDesks = DESKS.filter(d => !disabledDesks.includes(d.id));
+  const walkInCount = Math.max(1, Math.round(enabledDesks.length * (settings.walkInPoolPct || 20) / 100));
+  const walkInPool = new Set(enabledDesks.slice(-walkInCount).map(d => d.id));
+
+  const allocations = [];
+  const runLog = { date, runAt: new Date().toISOString(), allocations: [], walkInPool: [...walkInPool] };
+
+  for (const decl of decls) {
+    const user = USERS_DATA.find(u => u.id === decl.userId);
+    if (!user) continue;
+    if (bookings.some(b => b.userId === user.id && b.date === date)) continue;
+    if (allocations.some(a => a.userId === user.id)) continue;
+
+    const nsp = _aNoshowPriority(user.id);
+    const available = enabledDesks.filter(d =>
+      !assignedDesks.has(d.id) && !walkInPool.has(d.id) && !allocations.some(a => a.deskId === d.id)
+    );
+    if (available.length === 0) break;
+
+    const ep = _aLoadExtPrefs(user.id);
+    const favDesks = ep.favoriteDeskIds || user.favoriteDeskIds || [];
+    const teamAllocDesks = allocations.filter(a => (USERS_DATA.find(u => u.id === a.userId))?.team === user.team).map(a => a.deskId);
+
+    const scored = available.map(d => {
+      let score = _aScoreDesk(d, user) * nsp;
+      const teamNbs = [...new Set(teamAllocDesks.map(id => DESKS.find(dk => dk.id === id)?.neighbourhood).filter(Boolean))];
+      if (teamNbs.includes(d.neighbourhood)) score += 5;
+      if (favDesks.includes(d.id)) score += 4;
+      if (ep.flexMode) score -= 3;
+      return { ...d, score };
+    }).sort((a, b) => b.score - a.score);
+
+    const chosen = scored[0];
+    if (!chosen) continue;
+
+    const teamNbs = [...new Set(teamAllocDesks.map(id => DESKS.find(dk => dk.id === id)?.neighbourhood).filter(Boolean))];
+    const reasons = [];
+    if (_aScoreDesk(chosen, user) >= 3) reasons.push('Matches desk preferences');
+    if (teamNbs.includes(chosen.neighbourhood)) reasons.push('Near your team');
+    if (favDesks.includes(chosen.id)) reasons.push('One of your favourites');
+
+    allocations.push({
+      id: _aGenId(), userId: user.id, deskId: chosen.id, date,
+      type: decl.status === 'yes' ? 'soft' : 'soft-maybe',
+      status: 'pending',
+      reasonFactors: reasons.length ? reasons : ['Best available match'],
+      declarationStatus: decl.status,
+      allocatedAt: new Date().toISOString(),
+    });
+    assignedDesks.add(chosen.id);
+  }
+
+  _aSaveAllocations([...existingAllocs, ...allocations]);
+  const logs = _aLoadAllocLogs();
+  logs.unshift({ ...runLog, allocations: allocations.map(a => ({ userId: a.userId, deskId: a.deskId, reason: a.reasonFactors, type: a.type })) });
+  _aSaveAllocLogs(logs.slice(0, 30));
+
+  return { count: allocations.length, walkInCount, allocations };
+}
+
 // ── Allocation Engine Admin ────────────────────────────────────────────────
 
 function renderAllocations() {
@@ -2400,16 +2506,11 @@ function renderAllocations() {
 
 function adminRunAllocation(date, overwrite) {
   if (overwrite) {
-    const allocs = (() => { try { return JSON.parse(localStorage.getItem('mdb_allocations')||'[]'); } catch { return []; } })();
-    localStorage.setItem('mdb_allocations', JSON.stringify(allocs.filter(a => a.date !== date)));
+    _aSaveAllocations(_aLoadAllocations().filter(a => a.date !== date));
   }
-  if (typeof runAllocationEngine === 'function') {
-    const result = runAllocationEngine(date);
-    toast('Allocation complete — ' + result.count + ' desks allocated, ' + result.walkInCount + ' held for walk-ins', 'success');
-    renderAllocations();
-  } else {
-    toast('Allocation engine not available — open the main app first to initialise user data', 'error');
-  }
+  const result = runAllocationEngine(date);
+  toast('Allocation complete — ' + result.count + ' desks allocated, ' + result.walkInCount + ' held for walk-ins', 'success');
+  renderAllocations();
 }
 
 function adminSaveAllocSettings() {
