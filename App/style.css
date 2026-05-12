@@ -79,44 +79,10 @@ body {
   letter-spacing: 0.06em;
 }
 
-.login-logo img {
-  animation: logo-drop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) both,
-             logo-float 3s ease-in-out 0.7s infinite;
-}
-
-.login-logo span {
-  animation: logo-fadein 0.5s ease 0.4s both;
-}
-
 .login-subtitle {
   color: var(--text-secondary);
   margin-bottom: 28px;
   font-size: 1.4rem;
-  animation: logo-fadein 0.5s ease 0.6s both;
-}
-
-.login-card {
-  animation: card-rise 0.45s ease both;
-}
-
-@keyframes logo-drop {
-  from { transform: translateY(-40px) scale(0.6); opacity: 0; }
-  to   { transform: translateY(0)     scale(1);   opacity: 1; }
-}
-
-@keyframes logo-float {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-6px); }
-}
-
-@keyframes logo-fadein {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes card-rise {
-  from { opacity: 0; transform: translateY(24px); }
-  to   { opacity: 1; transform: translateY(0); }
 }
 
 .sso-card { text-align: center; }
