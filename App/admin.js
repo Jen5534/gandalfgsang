@@ -229,6 +229,7 @@ function navigate(view) {
     aianalysis:     renderAiAnalysis,
     allocations:    renderAllocations,
     rules:          renderRules,
+    seatingrules:   renderSeatingRules,
     anchordays:     renderAnchorDays,
     deskconfig:     renderDeskConfig,
     floorplans:     renderFloorPlans,
@@ -2518,6 +2519,140 @@ function adminSaveAllocSettings() {
   localStorage.setItem('mdb_alloc_settings', JSON.stringify({ walkInPoolPct: Math.max(5, Math.min(50, pct)) }));
   toast('Walk-in pool setting saved', 'success');
   renderAllocations();
+}
+
+// ── Seating Rules ──────────────────────────────────────────────────────────
+
+const SEPARATION_RULES_KEY = 'mdb_separation_rules';
+
+function loadSeparationRules() {
+  try { return JSON.parse(localStorage.getItem(SEPARATION_RULES_KEY) || '[]'); } catch { return []; }
+}
+function saveSeparationRules(rules) {
+  localStorage.setItem(SEPARATION_RULES_KEY, JSON.stringify(rules));
+}
+
+function renderSeatingRules() {
+  const rules = loadSeparationRules();
+  const users = [...USERS_DATA].sort((a, b) => a.fullName.localeCompare(b.fullName));
+
+  const userOptions = users.map(u =>
+    `<option value="${escHtml(u.id)}">${escHtml(u.fullName)} — ${escHtml(u.team)}</option>`
+  ).join('');
+
+  const ruleRows = rules.length ? rules.map(r => {
+    const uA = users.find(u => u.id === r.userAId);
+    const uB = users.find(u => u.id === r.userBId);
+    if (!uA || !uB) return '';
+    return `
+      <div class="sep-rule-row" id="sep-${escHtml(r.id)}">
+        <div class="sep-rule-pair">
+          <div class="sep-person">
+            <div class="user-avatar" style="width:32px;height:32px;font-size:12px;background:${avatarColor(uA.fullName)}">${initials(uA.fullName)}</div>
+            <div>
+              <div style="font-weight:600;font-size:13px">${escHtml(uA.fullName)}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${escHtml(uA.team)}</div>
+            </div>
+          </div>
+          <div class="sep-rule-divider">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="12 19 5 12 12 5"/><line x1="19" y1="12" x2="5" y2="12"/></svg>
+          </div>
+          <div class="sep-person">
+            <div class="user-avatar" style="width:32px;height:32px;font-size:12px;background:${avatarColor(uB.fullName)}">${initials(uB.fullName)}</div>
+            <div>
+              <div style="font-weight:600;font-size:13px">${escHtml(uB.fullName)}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${escHtml(uB.team)}</div>
+            </div>
+          </div>
+        </div>
+        ${r.reason ? `<div class="sep-rule-reason">${escHtml(r.reason)}</div>` : ''}
+        <button class="btn btn-sm btn-secondary" style="color:var(--danger);border-color:var(--danger);flex-shrink:0"
+                onclick="deleteSeparationRule('${escHtml(r.id)}')">Remove</button>
+      </div>`;
+  }).join('') : `<p style="color:var(--text-muted);font-size:13px;padding:16px 0">No seating rules configured yet.</p>`;
+
+  document.getElementById('view-seatingrules').innerHTML = `
+    <div class="page-header">
+      <h1>Seating Rules</h1>
+      <p>Prevent specified colleagues from being allocated desks in the same neighbourhood</p>
+    </div>
+
+    <div class="card one-col" style="margin-bottom:20px">
+      <div class="card-header">
+        <span class="card-title">Add New Rule</span>
+      </div>
+      <div class="card-body" style="padding:20px">
+        <div class="field-row" style="margin-bottom:14px">
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Person A</label>
+            <select id="sep-userA" class="field-input">
+              <option value="">— Select person —</option>
+              ${userOptions}
+            </select>
+          </div>
+          <div class="field-group" style="margin-bottom:0">
+            <label class="field-label">Person B</label>
+            <select id="sep-userB" class="field-input">
+              <option value="">— Select person —</option>
+              ${userOptions}
+            </select>
+          </div>
+        </div>
+        <div class="field-group" style="margin-bottom:16px">
+          <label class="field-label">Reason <span style="font-weight:400;color:var(--text-muted)">(optional — visible to admins only)</span></label>
+          <input type="text" id="sep-reason" class="field-input" placeholder="e.g. Ongoing conflict, performance concern…" maxlength="200">
+        </div>
+        <button class="btn btn-primary" onclick="addSeparationRule()">Add Rule</button>
+      </div>
+    </div>
+
+    <div class="card one-col">
+      <div class="card-header">
+        <span class="card-title">Current Rules</span>
+        <span style="font-size:12px;color:var(--text-muted)">${rules.length} rule${rules.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="card-body" style="padding:${rules.length ? '0' : '20px'}">
+        <div id="sep-rules-list" style="${rules.length ? 'padding:0 20px' : ''}">
+          ${ruleRows}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function addSeparationRule() {
+  const userAId = document.getElementById('sep-userA').value;
+  const userBId = document.getElementById('sep-userB').value;
+  const reason  = document.getElementById('sep-reason').value.trim();
+
+  if (!userAId || !userBId) { toast('Please select both people', 'error'); return; }
+  if (userAId === userBId)  { toast('Cannot add a rule between the same person', 'error'); return; }
+
+  const existing = loadSeparationRules();
+  const dupe = existing.some(r =>
+    (r.userAId === userAId && r.userBId === userBId) ||
+    (r.userAId === userBId && r.userBId === userAId)
+  );
+  if (dupe) { toast('A rule for this pair already exists', 'error'); return; }
+
+  const uA = USERS_DATA.find(u => u.id === userAId);
+  const uB = USERS_DATA.find(u => u.id === userBId);
+  existing.push({
+    id: 'sr-' + Date.now(),
+    userAId, userBId, reason,
+    createdAt: new Date().toISOString(),
+  });
+  saveSeparationRules(existing);
+  toast(`Rule added: ${uA?.fullName} ↔ ${uB?.fullName}`);
+  renderSeatingRules();
+}
+
+function deleteSeparationRule(id) {
+  const rules = loadSeparationRules().filter(r => r.id !== id);
+  saveSeparationRules(rules);
+  toast('Rule removed', 'success');
+  renderSeatingRules();
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────

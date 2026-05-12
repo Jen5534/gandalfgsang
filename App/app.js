@@ -88,6 +88,14 @@ function submitFeedback({ type, subject, message, rating, anonymous }) {
   saveFeedback(items);
 }
 
+// ── Separation rules (shared key with admin.js) ────────────────────────────
+
+const SEPARATION_RULES_KEY = 'mdb_separation_rules';
+
+function loadSeparationRules() {
+  try { return JSON.parse(localStorage.getItem(SEPARATION_RULES_KEY) || '[]'); } catch { return []; }
+}
+
 // ── User profile preferences ───────────────────────────────────────────────
 
 const PROFILES_KEY = 'mdb_profiles';
@@ -3686,10 +3694,20 @@ function runAllocationEngine(date) {
       const extPrefs = loadUserExtPrefs(user.id);
       const favDesks = extPrefs.favoriteDeskIds || user.favoriteDeskIds || [];
 
+      const sepRules = loadSeparationRules();
+      const sepUserIds = sepRules
+        .filter(r => r.userAId === user.id || r.userBId === user.id)
+        .map(r => r.userAId === user.id ? r.userBId : r.userAId);
+      const sepNbs = allocations
+        .filter(a => sepUserIds.includes(a.userId))
+        .map(a => DESKS.find(dk => dk.id === a.deskId)?.neighbourhood)
+        .filter(Boolean);
+
       const scored = available.map(d => {
         let score = scoreDesk(d, user) * nsp;
         const teamNbs = [...new Set(teamAllocDesks.map(id => DESKS.find(dk => dk.id === id)?.neighbourhood).filter(Boolean))];
         if (teamNbs.includes(d.neighbourhood)) score += 5;
+        if (sepNbs.includes(d.neighbourhood)) score -= 15;
         const userPattern = (typeof HISTORIC_PATTERNS !== 'undefined' ? HISTORIC_PATTERNS : []).find(p => p.userId === user.id);
         if (userPattern) {
           const usualNb = DESKS.find(dk => dk.id === userPattern.patterns[0]?.deskId)?.neighbourhood;
@@ -3707,6 +3725,7 @@ function runAllocationEngine(date) {
         const teamNbs = [...new Set(teamAllocDesks.map(id => DESKS.find(dk => dk.id === id)?.neighbourhood).filter(Boolean))];
         if (teamNbs.includes(chosen.neighbourhood)) reasons.push('Near your team');
         if (favDesks.includes(chosen.id)) reasons.push('One of your favourites');
+        if (sepNbs.length) reasons.push('Separated from flagged colleague');
         reasonFactors = reasons.length ? reasons : ['Best available match'];
       }
     }

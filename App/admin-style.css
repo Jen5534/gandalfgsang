@@ -487,6 +487,50 @@
 
 .btn-full { width: 100%; }
 
+/* ── Seating rules ─────────────────────────────────────────────────────────── */
+
+.sep-rule-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.sep-rule-row:last-child { border-bottom: none; }
+
+.sep-rule-pair {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.sep-person {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sep-rule-divider {
+  display: flex;
+  gap: 0;
+  color: var(--danger);
+  opacity: 0.7;
+  flex-shrink: 0;
+}
+
+.sep-rule-reason {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-style: italic;
+  flex-basis: 100%;
+  padding-left: 0;
+  margin-top: -6px;
+}
+
 /* ── Neighbourhood cards ─────────────────────────────────────────────────── */
 
 .nb-grid {
