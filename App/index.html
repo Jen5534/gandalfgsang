@@ -120,6 +120,60 @@
   <button class="agent-trigger" onclick="toggleAgent()">
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
   </button>
+  <button id="mobile-preview-trigger" class="mobile-preview-trigger" onclick="toggleMobilePreview()" title="Mobile Preview">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="3" stroke-linecap="round"/></svg>
+  </button>
+
+  <!-- Mobile Preview Overlay -->
+  <div id="mobile-preview-overlay" class="mobile-preview-overlay hidden" onclick="if(event.target===this)toggleMobilePreview()">
+    <div class="mobile-preview-panel">
+      <div class="mobile-preview-toolbar">
+        <span class="mobile-preview-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke-width="3" stroke-linecap="round"/></svg>
+          Mobile Preview
+        </span>
+        <div class="mobile-dev-tabs">
+          <button class="mobile-dev-tab active" data-device="iphone14" onclick="setMobileDevice('iphone14')">iPhone 14</button>
+          <button class="mobile-dev-tab" data-device="iphoneSE"  onclick="setMobileDevice('iphoneSE')">SE</button>
+          <button class="mobile-dev-tab" data-device="pixel7"    onclick="setMobileDevice('pixel7')">Pixel</button>
+          <button class="mobile-dev-tab" data-device="ipad"      onclick="setMobileDevice('ipad')">iPad</button>
+        </div>
+        <button class="mobile-rotate-btn" onclick="toggleMobileOrientation()" title="Rotate device">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+        </button>
+        <div class="mobile-page-tabs" style="margin-left:auto">
+          <button class="mobile-page-tab active" data-page="index.html"  onclick="setMobilePage('index.html')">App</button>
+          <button class="mobile-page-tab"         data-page="admin.html" onclick="setMobilePage('admin.html')">Admin</button>
+        </div>
+        <button class="agent-close-btn" onclick="toggleMobilePreview()" style="margin-left:8px">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+
+      <div id="mobile-frame-wrapper" class="mobile-frame-wrapper">
+        <div id="mobile-device-frame" class="mobile-device-frame">
+          <div class="mobile-side-btns-left">
+            <div class="mobile-side-btn"></div>
+            <div class="mobile-side-btn"></div>
+            <div class="mobile-side-btn"></div>
+          </div>
+          <div class="mobile-side-btns-right">
+            <div class="mobile-side-btn"></div>
+          </div>
+          <div id="mobile-screen-wrap" class="mobile-screen-wrap">
+            <div id="mobile-notch" class="mobile-notch"></div>
+            <iframe id="mobile-preview-iframe" src="index.html?preview=1" class="mobile-preview-iframe" title="Mobile preview"></iframe>
+            <div id="mobile-home-bar" class="mobile-home-bar"></div>
+            <div id="mobile-home-btn" class="mobile-home-btn" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="mobile-preview-footer">
+        <span id="mobile-device-label">iPhone 14 &mdash; 390&times;844</span>
+      </div>
+    </div>
+  </div>
 
   <div id="modal-overlay" class="modal-overlay hidden">
     <div class="modal">
@@ -130,5 +184,11 @@
   <script src="../data/historic-data.js"></script>
   <script src="../data/users-data.js"></script>
   <script src="app.js"></script>
+  <script>
+    if (new URLSearchParams(location.search).get('preview') === '1') {
+      document.getElementById('mobile-preview-trigger')?.remove();
+      document.getElementById('mobile-preview-overlay')?.remove();
+    }
+  </script>
 </body>
 </html>

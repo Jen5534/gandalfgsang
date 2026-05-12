@@ -3071,6 +3071,99 @@ function sendPerchNotification(title, body) {
   }
 }
 
+// ── Mobile Preview ────────────────────────────────────────────────────────
+
+const MOBILE_DEVICES = {
+  iphone14: { w: 390,  h: 844,  label: 'iPhone 14',  hasNotch: true,  hasHomeBtn: false, radius: 48 },
+  iphoneSE: { w: 375,  h: 667,  label: 'iPhone SE',  hasNotch: false, hasHomeBtn: true,  radius: 40 },
+  pixel7:   { w: 412,  h: 915,  label: 'Pixel 7',    hasNotch: true,  hasHomeBtn: false, radius: 44 },
+  ipad:     { w: 820,  h: 1180, label: 'iPad Air',   hasNotch: false, hasHomeBtn: false, radius: 24 },
+};
+
+let mobilePreviewOpen   = false;
+let currentMobileDevice = 'iphone14';
+let mobileOrientation   = 'portrait';
+
+function toggleMobilePreview() {
+  mobilePreviewOpen = !mobilePreviewOpen;
+  const overlay  = document.getElementById('mobile-preview-overlay');
+  const trigger  = document.getElementById('mobile-preview-trigger');
+  if (!overlay) return;
+  overlay.classList.toggle('hidden', !mobilePreviewOpen);
+  trigger?.classList.toggle('active', mobilePreviewOpen);
+  if (mobilePreviewOpen) updateMobileFrame();
+}
+
+function setMobileDevice(key) {
+  currentMobileDevice = key;
+  document.querySelectorAll('.mobile-dev-tab').forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.device === key));
+  updateMobileFrame();
+}
+
+function toggleMobileOrientation() {
+  mobileOrientation = mobileOrientation === 'portrait' ? 'landscape' : 'portrait';
+  updateMobileFrame();
+}
+
+function setMobilePage(page) {
+  document.querySelectorAll('.mobile-page-tab').forEach(btn =>
+    btn.classList.toggle('active', btn.dataset.page === page));
+  const iframe = document.getElementById('mobile-preview-iframe');
+  if (iframe) iframe.src = page + '?preview=1';
+}
+
+function updateMobileFrame() {
+  const device   = MOBILE_DEVICES[currentMobileDevice];
+  const portrait = mobileOrientation === 'portrait';
+  const cw = portrait ? device.w : device.h;
+  const ch = portrait ? device.h : device.w;
+
+  const iframe   = document.getElementById('mobile-preview-iframe');
+  const screen   = document.getElementById('mobile-screen-wrap');
+  const frame    = document.getElementById('mobile-device-frame');
+  const wrapper  = document.getElementById('mobile-frame-wrapper');
+  const label    = document.getElementById('mobile-device-label');
+  const notch    = document.getElementById('mobile-notch');
+  const homeBar  = document.getElementById('mobile-home-bar');
+  const homeBtn  = document.getElementById('mobile-home-btn');
+  if (!frame || !screen || !iframe || !wrapper) return;
+
+  // Screen + iframe sizing
+  iframe.style.width  = cw + 'px';
+  iframe.style.height = ch + 'px';
+  screen.style.width  = cw + 'px';
+  screen.style.height = ch + 'px';
+
+  // Frame border-radius (tighter in landscape)
+  const fr = portrait ? device.radius : Math.round(device.radius * 0.7);
+  frame.style.borderRadius  = fr + 'px';
+  screen.style.borderRadius = Math.max(fr - 12, 8) + 'px';
+
+  // Notch / home indicator
+  if (notch)   notch.style.display   = device.hasNotch   && portrait ? 'block' : 'none';
+  if (homeBar) homeBar.style.display = !device.hasHomeBtn && !portrait ? 'none'
+    : device.hasHomeBtn ? 'none' : 'block';
+  if (homeBtn) homeBtn.style.display = device.hasHomeBtn ? 'block' : 'none';
+
+  // Scale to fit the available viewport space
+  const pad    = 32; // frame padding each side (16×2)
+  const frameW = cw + pad;
+  const frameH = ch + pad;
+  const availW = Math.min(window.innerWidth  - 120, 900);
+  const availH = window.innerHeight - 180;
+  const scale  = Math.min(availW / frameW, availH / frameH, 1);
+
+  frame.style.transform       = `scale(${scale})`;
+  frame.style.transformOrigin = 'top center';
+  wrapper.style.width  = (frameW * scale) + 'px';
+  wrapper.style.height = (frameH * scale) + 'px';
+
+  if (label) label.innerHTML = `${device.label} &mdash; ${cw}&times;${ch}`;
+}
+
+window.addEventListener('resize', () => { if (mobilePreviewOpen) updateMobileFrame(); });
+
 // ── Init ───────────────────────────────────────────────────────────────────
 
 async function init() {
