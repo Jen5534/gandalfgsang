@@ -2115,6 +2115,70 @@ input[type="date"]:focus { outline: none; border-color: var(--primary); }
 html[data-font-size="large"]  { font-size: 11.5px; }
 html[data-font-size="larger"] { font-size: 13px; }
 
+/* ── Profile ── */
+.profile-hero {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px;
+}
+.profile-hero-info { flex: 1; min-width: 0; }
+.profile-hero-name { font-size: 1.7rem; font-weight: 600; color: var(--text); }
+.profile-hero-role { font-size: 1.3rem; color: var(--text-secondary); margin-top: 3px; }
+.profile-hero-email { font-size: 1.2rem; color: var(--text-muted); margin-top: 2px; }
+
+.pref-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border);
+}
+.pref-toggle-row:last-child { border-bottom: none; }
+.pref-toggle-label { font-size: 1.4rem; font-weight: 500; color: var(--text); }
+.pref-toggle-desc { font-size: 1.2rem; color: var(--text-secondary); margin-top: 2px; }
+
+.pref-select {
+  min-width: 160px;
+  padding: 7px 28px 7px 10px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 1.3rem;
+  color: var(--text);
+  background: var(--bg);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s;
+}
+.pref-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0,106,77,0.12);
+}
+
+.toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+.toggle-slider {
+  position: absolute; inset: 0; cursor: pointer;
+  background: var(--border); border-radius: 24px;
+  transition: background 0.2s;
+}
+.toggle-slider::before {
+  content: ''; position: absolute;
+  height: 18px; width: 18px; left: 3px; bottom: 3px;
+  background: #fff; border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+  transition: transform 0.2s;
+}
+.toggle-switch input:checked + .toggle-slider { background: var(--primary); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(20px); }
+
 /* Dark mode */
 html.dark-mode {
   --bg: #1a1f2e;

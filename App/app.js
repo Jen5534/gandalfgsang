@@ -88,6 +88,35 @@ function submitFeedback({ type, subject, message, rating, anonymous }) {
   saveFeedback(items);
 }
 
+// ── User profile preferences ───────────────────────────────────────────────
+
+const PROFILES_KEY = 'mdb_profiles';
+
+function loadProfilePrefs(userId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(PROFILES_KEY) || '{}');
+    return all[userId] || {};
+  } catch { return {}; }
+}
+
+function saveProfilePrefs(userId, prefs) {
+  try {
+    const all = JSON.parse(localStorage.getItem(PROFILES_KEY) || '{}');
+    all[userId] = prefs;
+    localStorage.setItem(PROFILES_KEY, JSON.stringify(all));
+  } catch {}
+}
+
+function profileSetPref(key, value) {
+  const prefs = loadProfilePrefs(currentUser.id);
+  prefs[key] = value;
+  saveProfilePrefs(currentUser.id, prefs);
+  if (key === 'darkMode') {
+    const isDark = document.documentElement.classList.contains('dark-mode');
+    if (value !== isDark) toggleTheme();
+  }
+}
+
 // ── Local bookings store (localStorage) ───────────────────────────────────
 
 const BOOKINGS_KEY = 'findMyDesk_bookings';
@@ -374,7 +403,7 @@ function toggleMobileSidebar(forceClose) {
 const VIEW_LABELS = {
   dashboard: 'Dashboard', 'my-bookings': 'My Bookings', 'whos-in': "Who's In",
   floorplan: 'Floor Plan', feedback: 'Feedback', 'team-bookings': 'Team Bookings',
-  declare: 'Declare', 'my-allocation': 'My Allocation'
+  declare: 'Declare', 'my-allocation': 'My Allocation', profile: 'Profile'
 };
 
 function navigate(view) {
@@ -393,6 +422,7 @@ function navigate(view) {
   else if (view === 'feedback') renderFeedback();
   else if (view === 'declare') renderDeclareView();
   else if (view === 'my-allocation') renderMyAllocationView();
+  else if (view === 'profile') renderProfileView();
 }
 
 // ── Login ──────────────────────────────────────────────────────────────────
@@ -4488,6 +4518,104 @@ function simulateCalendarSync() {
 }
 
 // ── Accessibility ────────────────────────────────────────────────────────────
+
+// ── Profile ────────────────────────────────────────────────────────────────
+
+function renderProfileView() {
+  const container = document.getElementById('view-profile');
+  if (!container) return;
+
+  const prefs  = loadProfilePrefs(currentUser.id);
+  const isDark = document.documentElement.classList.contains('dark-mode');
+
+  const AREAS = ['', 'Window Bank', 'Quiet Zone', 'Core Desk Area', 'Collaboration Zone'];
+  const areaOptions = AREAS.map(a =>
+    `<option value="${a}"${prefs.preferredArea === a ? ' selected' : ''}>${a || 'No preference'}</option>`
+  ).join('');
+
+  const floorOptions = [
+    { value: '', label: 'No preference' },
+    { value: 'ground', label: 'Ground Floor' },
+    { value: 'first',  label: 'First Floor'  },
+  ].map(f =>
+    `<option value="${f.value}"${prefs.preferredFloor === f.value ? ' selected' : ''}>${f.label}</option>`
+  ).join('');
+
+  const toggleRow = (key, label, desc, checked) => `
+    <div class="pref-toggle-row">
+      <div>
+        <div class="pref-toggle-label">${label}</div>
+        ${desc ? `<div class="pref-toggle-desc">${desc}</div>` : ''}
+      </div>
+      <label class="toggle-switch" aria-label="${label}">
+        <input type="checkbox"${checked ? ' checked' : ''} onchange="profileSetPref('${key}', this.checked)">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>`;
+
+  container.innerHTML = `
+    <div class="page-header">
+      <h1>Profile</h1>
+      <p>Your preferences and display settings</p>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="profile-hero">
+        <div class="user-avatar" style="width:52px;height:52px;font-size:1.8rem;background:${avatarColor(currentUser.fullName)};flex-shrink:0">${initials(currentUser.fullName)}</div>
+        <div class="profile-hero-info">
+          <div class="profile-hero-name">${currentUser.fullName}</div>
+          <div class="profile-hero-role">${currentUser.role} &middot; ${currentUser.team}</div>
+          <div class="profile-hero-email">${currentUser.email}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><span class="card-title">Preferred Desk &amp; Area</span></div>
+      <div class="card-body" style="padding:0 20px">
+        <div class="pref-toggle-row">
+          <div>
+            <div class="pref-toggle-label">Area</div>
+            <div class="pref-toggle-desc">Which neighbourhood suits you best?</div>
+          </div>
+          <select class="pref-select" onchange="profileSetPref('preferredArea', this.value)">${areaOptions}</select>
+        </div>
+        <div class="pref-toggle-row">
+          <div>
+            <div class="pref-toggle-label">Floor</div>
+            <div class="pref-toggle-desc">Ground or first?</div>
+          </div>
+          <select class="pref-select" onchange="profileSetPref('preferredFloor', this.value)">${floorOptions}</select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><span class="card-title">Desk Requirements</span></div>
+      <div class="card-body" style="padding:0 20px">
+        ${toggleRow('quietDesk',     'Quiet Desk',     'Prefer a desk away from noisy areas',  prefs.quietDesk)}
+        ${toggleRow('standingDesk',  'Standing Desk',  'Height-adjustable desk',               prefs.standingDesk)}
+        ${toggleRow('dualMonitor',   'Dual Monitor',   'Two screens to work at your best',     prefs.dualMonitor)}
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header"><span class="card-title">Location Preferences</span></div>
+      <div class="card-body" style="padding:0 20px">
+        ${toggleRow('nearKitchen',    'Near Kitchen',          'Handy for coffee runs',                        prefs.nearKitchen)}
+        ${toggleRow('nearToilets',    'Near Toilets',          '',                                             prefs.nearToilets)}
+        ${toggleRow('awayFromKieran', 'Well Away from Kieran', "We all know why &nbsp;&#128578;",              prefs.awayFromKieran)}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">Display</span></div>
+      <div class="card-body" style="padding:0 20px">
+        ${toggleRow('darkMode', 'Dark Mode', 'Switch to a darker colour scheme', isDark)}
+      </div>
+    </div>
+  `;
+}
 
 function toggleTheme() {
   const isDark = document.documentElement.classList.toggle('dark-mode');
