@@ -1841,14 +1841,15 @@ let floorPlanDate = null;
 let floorPlanFloor = 'ground';
 
 function loadFloorPlans() {
+  const defaults = [
+    { id:'fp-ground', name:'Ground Floor', building:'London HQ', floorKey:'ground', assignedTeams:[] },
+    { id:'fp-first',  name:'First Floor',  building:'London HQ', floorKey:'first',  assignedTeams:[] },
+  ];
   try {
     const s = JSON.parse(localStorage.getItem('mdb_admin_settings') || 'null');
     if (s?.floorPlans?.length) return s.floorPlans;
   } catch { /* fall through */ }
-  return [
-    { id:'fp-ground', name:'Ground Floor', building:'London HQ', floorKey:'ground', assignedTeams:[], imageUrl:'/floorplans/ground.png' },
-    { id:'fp-first',  name:'First Floor',  building:'London HQ', floorKey:'first',  assignedTeams:[], imageUrl:'/floorplans/first.png'  },
-  ];
+  return defaults;
 }
 
 const DESK_COORDS = {
@@ -1911,43 +1912,43 @@ function renderFloorPlan() {
     floorPlanFloor = plans[0]?.floorKey || 'ground';
   }
   const activePlan = plans.find(p => p.floorKey === floorPlanFloor) || plans[0];
+  const floorKey   = activePlan?.floorKey || floorPlanFloor;
 
-  const bookings = getBookings({ date: floorPlanDate });
-  const floorBookings = bookings.filter(b => b.desk?.floor === floorPlanFloor);
-  const bookedDeskIds = new Set(floorBookings.map(b => b.deskId));
-  const floorDesks = DESKS.filter(d => d.floor === floorPlanFloor);
-  const imgSrc = activePlan?.imageUrl || generateFloorPlanSVG(activePlan?.floorKey || floorPlanFloor);
+  const bookings     = getBookings({ date: floorPlanDate });
+  const floorBookings = bookings.filter(b => b.desk?.floor === floorKey);
+  const floorDesks   = DESKS.filter(d => d.floor === floorKey);
+  const available    = floorDesks.length - floorBookings.length;
 
-  const markers = floorDesks.map(desk => {
-    const coords = DESK_COORDS[desk.id];
-    if (!coords) return '';
-    const booking = floorBookings.find(b => b.deskId === desk.id);
-    const isMe = booking?.userId === currentUser.id;
-
-    if (booking?.user) {
-      const u = booking.user;
-      return `
-        <div class="fp-marker fp-marker-booked${isMe ? ' fp-marker-me' : ''}"
-             style="left:${coords.x}%;top:${coords.y}%"
-             onclick="fpShowDetail('${desk.id}','${floorPlanDate}')">
-          <div class="fp-avatar" style="background:${avatarColor(u.fullName)}">${initials(u.fullName)}</div>
-          <div class="fp-label">${u.fullName}</div>
-        </div>`;
-    }
-    return `
-      <div class="fp-marker fp-marker-empty"
-           style="left:${coords.x}%;top:${coords.y}%"
-           onclick="fpShowDetail('${desk.id}','${floorPlanDate}')">
-        <div class="fp-dot"></div>
-        <div class="fp-label fp-label-desk">${desk.id}</div>
-      </div>`;
-  }).join('');
+  // Always load from the floorplans folder — imageUrl in settings only used for
+  // admin-uploaded overrides (base64). For path-based URLs always rebuild from floorKey.
+  const storedUrl = activePlan?.imageUrl || '';
+  const imgSrc = storedUrl.startsWith('data:') ? storedUrl : `/floorplans/${floorKey}.png`;
 
   const tabs = plans.map(p => `
-    <button class="floor-tab${floorPlanFloor === p.floorKey ? ' active' : ''}"
+    <button class="floor-tab${floorKey === p.floorKey ? ' active' : ''}"
             onclick="fpSetFloor('${p.floorKey}')">
-      ${p.name}${p.building !== (plans[0]?.building) ? ` <span style="font-size:10px;opacity:0.7">(${p.building})</span>` : ''}
+      ${escHtml(p.name)}${p.building !== plans[0]?.building ? ` <span style="font-size:10px;opacity:0.7">(${escHtml(p.building)})</span>` : ''}
     </button>`).join('');
+
+  const bookingRows = floorBookings.length
+    ? floorBookings.map(b => {
+        const isMe = b.userId === currentUser.id;
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;
+                      background:${isMe ? 'var(--primary-bg,#f0fdf4)' : 'var(--card-bg,#fff)'};
+                      border:1px solid ${isMe ? 'var(--primary)' : 'var(--border)'};
+                      border-radius:8px;cursor:pointer;transition:box-shadow 0.15s"
+               onmouseenter="this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'"
+               onmouseleave="this.style.boxShadow=''"
+               onclick="fpShowDetail('${b.deskId}','${floorPlanDate}')">
+            <div class="fp-avatar" style="background:${avatarColor(b.user.fullName)}">${initials(b.user.fullName)}</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${escHtml(b.user.fullName)}${isMe ? ' <span style="color:var(--primary);font-weight:500">(you)</span>' : ''}</div>
+              <div style="font-size:11px;color:var(--text-secondary)">${b.deskId}${b.desk?.neighbourhood ? ' · ' + escHtml(b.desk.neighbourhood) : ''}</div>
+            </div>
+          </div>`;
+      }).join('')
+    : `<p style="color:var(--text-secondary);font-size:14px;padding:8px 0">No desks booked on this floor for ${floorPlanDate}.</p>`;
 
   container.innerHTML = `
     <div class="page-header">
@@ -1959,18 +1960,23 @@ function renderFloorPlan() {
       <div class="floor-tabs" style="margin-bottom:0">${tabs}</div>
       <label style="font-size:13px;font-weight:500;color:var(--text-secondary)">Date:</label>
       <input type="date" value="${floorPlanDate}" onchange="fpSetDate(this.value)">
-      <div style="display:flex;align-items:center;gap:14px;margin-left:auto;font-size:12px;color:var(--text-secondary)">
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:var(--primary);display:inline-block"></span> Booked</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#e2e8f0;border:1.5px solid #cbd5e1;display:inline-block"></span> Available</span>
-        <span style="display:flex;align-items:center;gap:5px"><span style="width:10px;height:10px;border-radius:50%;background:#FFB800;display:inline-block"></span> Your desk</span>
-      </div>
+      <span style="margin-left:auto;font-size:12px;color:var(--text-secondary)">
+        ${floorBookings.length} booked &nbsp;·&nbsp; ${available} available
+      </span>
     </div>
 
     <div class="fp-wrap">
-      <img src="${imgSrc}" class="fp-img" alt="${activePlan?.name || 'Floor plan'}" onerror="this.src=generateFloorPlanSVG('${floorPlanFloor}')">
-      ${markers}
-      <div style="position:absolute;bottom:8px;right:10px;font-size:11px;color:#94a3b8;background:rgba(255,255,255,0.85);padding:2px 6px;border-radius:4px">
-        ${floorBookings.length} booked · ${floorDesks.length - bookedDeskIds.size} available
+      <img src="${imgSrc}" class="fp-img" alt="${escHtml(activePlan?.name || 'Floor plan')}"
+           onerror="this.onerror=null;this.src=generateFloorPlanSVG('${floorKey}')">
+    </div>
+
+    <div style="margin-top:20px">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;
+                  color:var(--text-secondary);margin-bottom:10px">
+        ${escHtml(activePlan?.name || 'Floor')} — bookings for ${floorPlanDate}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">
+        ${bookingRows}
       </div>
     </div>
   `;
