@@ -752,7 +752,7 @@ function generateAllSoftHolds() {
   );
 
   const existingKeys = new Set(
-    holds.filter(h => h.status !== 'released').map(h => `${h.userId}|${h.date}`)
+    holds.map(h => `${h.userId}|${h.date}`)
   );
   const bookings = loadBookings();
   const bookedKeys = new Set(bookings.map(b => `${b.userId}|${b.date}`));
