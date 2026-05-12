@@ -215,6 +215,7 @@ function navigate(view) {
     deskreport:     renderDeskReport,
     teamreport:     renderTeamReport,
     neighbourhoods: renderNeighbourhoods,
+    aianalysis:     renderAiAnalysis,
     rules:          renderRules,
     deskconfig:     renderDeskConfig,
     officesettings: renderOfficeSettings,
@@ -1512,6 +1513,292 @@ function removeBuilding(name) {
   saveSettings(s);
   toast('Building removed');
   renderNeighbourhoods();
+}
+
+// ── AI Analysis ───────────────────────────────────────────────────────────
+
+const AI_KEY_KEY = 'mdb_ai_api_key';
+
+function compileAnalysisData() {
+  const b30      = bookingsInRange(30);
+  const b7       = bookingsInRange(7);
+  const wd30     = countWorkdays(30);
+  const wd7      = countWorkdays(7);
+  const totalDesks = DESKS.length;
+  const settings = loadSettings();
+
+  const avgOcc30   = pct(b30.length, wd30 * totalDesks);
+  const avgOcc7    = pct(b7.length,  wd7  * totalDesks);
+  const noShows30  = b30.filter(b => !b.checkedIn).length;
+  const noShowR30  = pct(noShows30, b30.length || 1);
+  const noShows7   = b7.filter(b => !b.checkedIn).length;
+  const noShowR7   = pct(noShows7,  b7.length  || 1);
+
+  const byDay = [1,2,3,4,5].map(dow => {
+    const days  = countWorkdaysByDow(30, dow);
+    const count = b30.filter(b => dayOfWeek(b.date) === dow).length;
+    return { day: DAY_NAMES[dow], occupancyPct: pct(count, days * totalDesks) };
+  });
+
+  const byNb = Object.keys(NB_COLOURS).map(nb => {
+    const nbDesks  = DESKS.filter(d => d.neighbourhood === nb);
+    const count    = b30.filter(b => nbDesks.find(d => d.id === b.deskId)).length;
+    const possible = countWorkdays(30) * nbDesks.length;
+    const noShows  = b30.filter(b => nbDesks.find(d => d.id === b.deskId) && !b.checkedIn).length;
+    return {
+      neighbourhood:  nb,
+      desks:          nbDesks.length,
+      utilisationPct: pct(count, possible),
+      noShowRatePct:  pct(noShows, count || 1),
+    };
+  });
+
+  const teams = [...new Set(USERS_DATA.map(u => u.team))].sort();
+  const teamStats = teams.map(team => {
+    const users   = USERS_DATA.filter(u => u.team === team);
+    const uids    = new Set(users.map(u => u.id));
+    const tb      = b30.filter(b => uids.has(b.userId));
+    const noShows = tb.filter(b => !b.checkedIn).length;
+    return {
+      team,
+      users:         users.length,
+      bookings30d:   tb.length,
+      avgPerUser:    users.length ? +(tb.length / users.length).toFixed(1) : 0,
+      noShowRatePct: pct(noShows, tb.length || 1),
+    };
+  });
+
+  const deskStats = DESKS.map(desk => {
+    const db = b30.filter(b => b.deskId === desk.id);
+    return { id: desk.id, neighbourhood: desk.neighbourhood, utilisationPct: pct(db.length, wd30) };
+  });
+  const topDesks    = [...deskStats].sort((a,b) => b.utilisationPct - a.utilisationPct).slice(0, 3);
+  const bottomDesks = [...deskStats].sort((a,b) => a.utilisationPct - b.utilisationPct).slice(0, 3);
+
+  const anchorCompliance = (() => {
+    const users = USERS_DATA.filter(u => u.anchorDays?.length > 0);
+    if (!users.length) return null;
+    const DAY_IDX = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    let met = 0, total = 0;
+    users.forEach(u => {
+      u.anchorDays.forEach(dayName => {
+        const dow     = DAY_IDX.indexOf(dayName);
+        const possible = countWorkdaysByDow(30, dow);
+        if (!possible) return;
+        const count = b30.filter(b => b.userId === u.id && dayOfWeek(b.date) === dow).length;
+        total++;
+        if (count >= Math.ceil(possible * 0.5)) met++;
+      });
+    });
+    return { metPct: pct(met, total), usersWithAnchorDays: users.length };
+  })();
+
+  return {
+    officeName:           settings.office.name,
+    totalDesks,
+    totalRegisteredUsers: USERS_DATA.length,
+    analysisPeriod:       '30 days',
+    occupancy: {
+      last30dAvgPct: avgOcc30,
+      last7dAvgPct:  avgOcc7,
+      trendVs30d:    avgOcc7 - avgOcc30,
+      totalBookings: b30.length,
+    },
+    noShows: {
+      rate30dPct: noShowR30,
+      rate7dPct:  noShowR7,
+      count30d:   noShows30,
+    },
+    bookingsByDayOfWeek: byDay,
+    neighbourhoodStats:  byNb,
+    teamStats,
+    topDesks,
+    underutilisedDesks:  bottomDesks,
+    anchorDayCompliance: anchorCompliance,
+    bookingRules:        settings.bookingRules,
+  };
+}
+
+async function runAiAnalysis() {
+  const keyInput = document.getElementById('ai-api-key');
+  const key = keyInput?.value.trim();
+  if (!key) { toast('Please enter an Anthropic API key', 'error'); return; }
+  localStorage.setItem(AI_KEY_KEY, key);
+
+  const btn      = document.getElementById('ai-run-btn');
+  const resultEl = document.getElementById('ai-result');
+  if (btn) { btn.disabled = true; btn.textContent = 'Analysing…'; }
+  resultEl.innerHTML = `
+    <div style="display:flex;align-items:center;gap:14px;padding:40px 24px;color:var(--text-secondary)">
+      <div class="ai-spinner"></div>
+      <div>
+        <div style="font-weight:500;margin-bottom:2px">Claude is analysing your data…</div>
+        <div style="font-size:12px">Reviewing occupancy, no-shows, team patterns and desk utilisation</div>
+      </div>
+    </div>`;
+
+  const data = compileAnalysisData();
+
+  const prompt = `You are analysing 30-day usage data from Perch, a hot-desking booking system at ${data.officeName}.
+
+DATA:
+${JSON.stringify(data, null, 2)}
+
+Return ONLY a valid JSON object (no markdown fences, no preamble — raw JSON only) with this exact structure:
+{
+  "summary": "2-3 sentence executive summary of the overall picture",
+  "working_well": [
+    {"title": "Short title", "detail": "Specific supporting detail citing numbers from the data"}
+  ],
+  "concerns": [
+    {"title": "Short title", "detail": "Specific issue with data evidence and why it matters"}
+  ],
+  "recommendations": [
+    {"title": "Action title", "detail": "Specific actionable step with expected outcome", "priority": "high"}
+  ],
+  "prediction": "1-2 sentence forward-looking observation based on the trends in the data"
+}
+
+Rules: working_well = 2-3 items; concerns = 2-3 items; recommendations = 3-4 items; priority must be "high", "medium" or "low". Cite actual numbers. Keep each item to 1-2 sentences.`;
+
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-allow-browser': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 1500,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error?.message || `API error ${resp.status}`);
+    }
+
+    const json   = await resp.json();
+    const raw    = (json.content[0]?.text || '').trim();
+    const cleaned = raw.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/, '');
+    renderAnalysisResult(JSON.parse(cleaned));
+  } catch (e) {
+    resultEl.innerHTML = `
+      <div style="padding:16px 20px;background:var(--danger-light);border:1px solid var(--danger);border-radius:8px;color:var(--danger);font-size:13px">
+        <strong>Analysis failed:</strong> ${escHtml(e.message)}
+      </div>`;
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Generate Analysis'; }
+  }
+}
+
+function renderAnalysisResult(a) {
+  const priorityBadge = p => {
+    const map = { high: ['#DC2626','#FEE2E2'], medium: ['#D97706','#FEF3C7'], low: ['#16a34a','#F0FDF4'] };
+    const [color, bg] = map[p] || map.medium;
+    return `<span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:2px 8px;border-radius:99px;background:${bg};color:${color};flex-shrink:0">${p}</span>`;
+  };
+
+  document.getElementById('ai-result').innerHTML = `
+    <div class="ai-summary-box">${escHtml(a.summary)}</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" style="display:flex;align-items:center;gap:7px">
+            <span style="color:#16a34a">✓</span> What's working well
+          </span>
+        </div>
+        <div class="card-body" style="padding:4px 16px 12px">
+          ${(a.working_well || []).map(item => `
+            <div class="ai-finding-item ai-finding-good">
+              <div class="ai-finding-title">${escHtml(item.title)}</div>
+              <div class="ai-finding-detail">${escHtml(item.detail)}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title" style="display:flex;align-items:center;gap:7px">
+            <span style="color:#D97706">⚠</span> Areas of concern
+          </span>
+        </div>
+        <div class="card-body" style="padding:4px 16px 12px">
+          ${(a.concerns || []).map(item => `
+            <div class="ai-finding-item ai-finding-concern">
+              <div class="ai-finding-title">${escHtml(item.title)}</div>
+              <div class="ai-finding-detail">${escHtml(item.detail)}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card one-col" style="margin-bottom:16px">
+      <div class="card-header">
+        <span class="card-title" style="display:flex;align-items:center;gap:7px">
+          <span style="color:var(--primary)">→</span> Recommendations
+        </span>
+      </div>
+      <div class="card-body" style="padding:4px 16px 12px">
+        ${(a.recommendations || []).map(item => `
+          <div class="ai-finding-item ai-finding-rec">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+              <div class="ai-finding-title" style="margin:0;flex:1">${escHtml(item.title)}</div>
+              ${priorityBadge(item.priority)}
+            </div>
+            <div class="ai-finding-detail">${escHtml(item.detail)}</div>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card one-col">
+      <div class="card-header">
+        <span class="card-title" style="display:flex;align-items:center;gap:7px">
+          <span style="color:#7c3aed">◈</span> Outlook
+        </span>
+      </div>
+      <div class="card-body" style="padding:14px 20px">
+        <p style="font-size:13.5px;color:var(--text-secondary);line-height:1.65;margin:0">${escHtml(a.prediction)}</p>
+      </div>
+    </div>
+  `;
+}
+
+function renderAiAnalysis() {
+  const savedKey = localStorage.getItem(AI_KEY_KEY) || '';
+  document.getElementById('view-aianalysis').innerHTML = `
+    <div class="page-header">
+      <h1>AI Analysis</h1>
+      <p>Claude reviews your usage data and identifies what's working, what isn't, and what to do about it</p>
+    </div>
+
+    <div class="card one-col" style="margin-bottom:20px">
+      <div class="card-body" style="padding:20px 24px">
+        <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+          <div style="flex:1;min-width:200px">
+            <label class="field-label">Anthropic API Key</label>
+            <input type="password" id="ai-api-key" class="field-input" placeholder="sk-ant-…"
+              value="${escHtml(savedKey)}"
+              onkeydown="if(event.key==='Enter')runAiAnalysis()">
+            <div class="field-hint">Stored in your browser only — never sent anywhere except the Anthropic API</div>
+          </div>
+          <button id="ai-run-btn" class="btn btn-primary" onclick="runAiAnalysis()" style="padding:10px 24px;flex-shrink:0">
+            Generate Analysis
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="ai-result">
+      <div style="padding:48px 24px;text-align:center;color:var(--text-muted);font-size:13.5px">
+        Enter your API key above and click <strong>Generate Analysis</strong> to get started.
+      </div>
+    </div>
+  `;
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
