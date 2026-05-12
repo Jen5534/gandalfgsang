@@ -67,8 +67,13 @@ http.createServer((req, res) => {
 
   // ── Static files ────────────────────────────────────────────────────────
   let servePath = urlPath === '/' ? '/index.html' : urlPath;
-  let filePath  = path.join(APP_DIR, servePath);
-  if (!fs.existsSync(filePath)) filePath = path.join(DATA_DIR, servePath);
+  let filePath;
+  if (servePath.startsWith('/data/')) {
+    // ../data/* refs in HTML resolve to /data/* — serve from project data dir
+    filePath = path.join(DATA_DIR, servePath.slice('/data'.length));
+  } else {
+    filePath = path.join(APP_DIR, servePath);
+  }
 
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
     res.writeHead(404); res.end('Not found'); return;
