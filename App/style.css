@@ -857,6 +857,25 @@ body {
 .modal-desc  { color: var(--text-secondary); font-size: 13.5px; margin-bottom: 24px; line-height: 1.6; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
+/* ── Friction-Free Change ── */
+.manage-section { margin-bottom: 14px; }
+.manage-section-title { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); margin-bottom: 8px; }
+.handover-list { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.handover-btn {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 8px 10px; border: 1.5px solid var(--border);
+  border-radius: var(--radius); background: white; cursor: pointer;
+  text-align: left; transition: border-color 0.15s, background 0.15s;
+}
+.handover-btn:hover { border-color: var(--primary); background: var(--primary-light); }
+.swap-desk-btn {
+  display: flex; flex-direction: column; align-items: stretch;
+  width: 100%; padding: 10px 12px; border: 1.5px solid var(--border);
+  border-radius: var(--radius); background: white; cursor: pointer;
+  text-align: left; transition: border-color 0.15s, background 0.15s;
+}
+.swap-desk-btn:hover { border-color: var(--primary); background: var(--primary-light); }
+
 /* ── Divider ── */
 .divider { height: 1px; background: var(--border); margin: 16px 0; }
 

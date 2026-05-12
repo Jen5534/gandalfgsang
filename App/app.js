@@ -1447,8 +1447,7 @@ function renderBookingItem(booking, showActions) {
           ${isToday_ && !booking.checkedIn
             ? `<button class="btn btn-sm btn-primary" onclick="checkInBooking('${booking.id}')">Check In</button>`
             : ''}
-          <button class="btn btn-sm btn-secondary" style="color:var(--danger);border-color:var(--danger)"
-            onclick="promptCancel('${booking.id}','${booking.desk?.id}','${booking.date}')">Cancel</button>
+          <button class="btn btn-sm btn-secondary" onclick="showManageBookingModal('${booking.id}')">Manage</button>
         </div>` : ''}
     </div>
   `;
@@ -1486,11 +1485,200 @@ async function doCancel(bookingId, label) {
   hideModal();
   try {
     deleteBooking(bookingId);
-    toast(`Booking cancelled: ${label}`, 'info');
+    toast(`Booking cancelled — ${label} is back in the pool`, 'info');
     renderMyBookings();
   } catch (e) {
     toast(e.message, 'error');
   }
+}
+
+// ── Friction-Free Change ───────────────────────────────────────────────────
+
+function showManageBookingModal(bookingId) {
+  const allMine = [
+    ...getBookings({ userId: currentUser.id, upcoming: true }),
+    ...getBookings({ bookedBy: currentUser.id, upcoming: true }),
+  ];
+  const booking = allMine.find(b => b.id === bookingId);
+  if (!booking) return;
+
+  const slot    = booking.slot || 'full';
+  const deskId  = booking.desk?.id || booking.deskId;
+  const dateStr = booking.date;
+  const isToday_ = dateStr === today();
+
+  const shortenHtml = slot === 'full' ? `
+    <div class="manage-section">
+      <div class="manage-section-title">Shorten</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <button class="btn btn-secondary" onclick="shortenBooking('${bookingId}','am')">
+          <div style="font-weight:600">Keep Morning</div>
+          <div style="font-size:11px;color:var(--text-muted)">Free up PM slot</div>
+        </button>
+        <button class="btn btn-secondary" onclick="shortenBooking('${bookingId}','pm')">
+          <div style="font-weight:600">Keep Afternoon</div>
+          <div style="font-size:11px;color:var(--text-muted)">Free up AM slot</div>
+        </button>
+      </div>
+    </div>` : '';
+
+  const teammates = allUsers.filter(u =>
+    u.team === currentUser.team &&
+    u.id !== currentUser.id &&
+    u.location === currentUser.location
+  );
+
+  const handoverHtml = teammates.length > 0 ? `
+    <div class="manage-section">
+      <div class="manage-section-title">Hand over to teammate</div>
+      <div class="handover-list">
+        ${teammates.map(u => `
+          <button class="handover-btn" onclick="doHandOver('${bookingId}','${u.id}')">
+            <div class="user-avatar" style="background:${avatarColor(u.fullName)};width:30px;height:30px;font-size:11px;flex-shrink:0">${initials(u.fullName)}</div>
+            <div style="min-width:0">
+              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${u.fullName}</div>
+              <div style="font-size:11.5px;color:var(--text-muted)">${u.role}</div>
+            </div>
+          </button>`).join('')}
+      </div>
+    </div>` : '';
+
+  showModal(`
+    <div class="modal-title">Manage Booking</div>
+    <div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:16px">
+      <div style="font-weight:700;font-size:15px;color:var(--text)">${deskId}</div>
+      <div style="font-size:12.5px;color:var(--text-secondary);margin-top:2px">${displayDate(dateStr)} &middot; ${slotLabel(slot)}</div>
+    </div>
+    ${shortenHtml}
+    <div class="manage-section">
+      <div class="manage-section-title">Swap desk</div>
+      <button class="btn btn-secondary btn-full" onclick="showSwapDeskModal('${bookingId}')">Find a different desk &rarr;</button>
+    </div>
+    ${handoverHtml}
+    <div class="manage-section" style="border-top:1px solid var(--border);padding-top:14px;margin-top:4px">
+      <button class="btn btn-full" style="background:var(--danger-light);color:var(--danger);border:1.5px solid var(--danger)"
+        onclick="promptCancelFromManage('${bookingId}','${deskId}','${dateStr}')">Cancel booking</button>
+    </div>
+    <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="hideModal()">Close</button>
+  `);
+}
+
+function shortenBooking(bookingId, keepSlot) {
+  hideModal();
+  const bookings = loadBookings();
+  const b = bookings.find(b => b.id === bookingId);
+  if (!b) { toast('Booking not found', 'error'); return; }
+  const freedLabel = keepSlot === 'am' ? 'PM' : 'AM';
+  b.slot = keepSlot;
+  saveBookings(bookings);
+  toast(`Booking shortened — ${freedLabel} slot is back in the pool`, 'success');
+  renderMyBookings();
+}
+
+function showSwapDeskModal(bookingId) {
+  const booking = getBookings({ userId: currentUser.id, upcoming: true }).find(b => b.id === bookingId)
+    || getBookings({ bookedBy: currentUser.id, upcoming: true }).find(b => b.id === bookingId);
+  if (!booking) return;
+
+  const slot = booking.slot || 'full';
+  const date = booking.date;
+
+  const available = getDesks({ date }).filter(d => {
+    if (d.id === booking.deskId) return false;
+    return slot === 'am' ? d.amAvailable : slot === 'pm' ? d.pmAvailable : d.available;
+  });
+
+  const scored = available
+    .map(d => ({ ...d, score: scoreDesk(d, currentUser) }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 8);
+
+  if (scored.length === 0) {
+    toast('No other desks available for that date and slot', 'info');
+    return;
+  }
+
+  showModal(`
+    <div class="modal-title">Swap Desk</div>
+    <div class="modal-desc" style="margin-bottom:12px">Pick a replacement for ${displayShortDate(date)} &middot; ${slotLabel(slot)}</div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto">
+      ${scored.map(d => `
+        <button class="swap-desk-btn" onclick="doSwapDesk('${bookingId}','${d.id}')">
+          <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-weight:700;font-size:14px">${d.id}</span>
+              <span class="desk-neighbourhood ${nbClass(d.neighbourhood)}">${d.neighbourhood}</span>
+            </div>
+            <span class="pill pill-grey">${d.floor === 'ground' ? 'Ground' : 'First'}</span>
+          </div>
+          ${d.features.length > 0 ? `<div class="desk-features" style="margin-top:5px">${d.features.map(f=>`<span class="feature-tag ft-${f}">${featureLabel(f)}</span>`).join('')}</div>` : ''}
+        </button>`).join('')}
+    </div>
+    <button class="btn btn-ghost btn-full" style="margin-top:12px" onclick="showManageBookingModal('${bookingId}')">&larr; Back</button>
+  `);
+}
+
+function doSwapDesk(bookingId, newDeskId) {
+  hideModal();
+  const raw = loadBookings();
+  const b   = raw.find(b => b.id === bookingId);
+  if (!b) { toast('Booking not found', 'error'); return; }
+  const { userId, deskId: oldDeskId, date, slot } = { ...b, slot: b.slot || 'full' };
+  try {
+    deleteBooking(bookingId);
+    createBooking({ userId, deskId: newDeskId, date, slot });
+    toast(`Swapped to ${newDeskId} — ${oldDeskId} is back in the pool`, 'success');
+    renderMyBookings();
+  } catch (e) {
+    try { createBooking({ userId, deskId: oldDeskId, date, slot }); } catch {}
+    toast(e.message || 'Swap failed — original booking restored', 'error');
+    renderMyBookings();
+  }
+}
+
+function doHandOver(bookingId, targetUserId) {
+  hideModal();
+  const raw = loadBookings();
+  const b   = raw.find(b => b.id === bookingId);
+  if (!b) { toast('Booking not found', 'error'); return; }
+  const target = allUsers.find(u => u.id === targetUserId);
+  if (!target) return;
+  const slot = b.slot || 'full';
+
+  const conflicts = getBookings({ userId: targetUserId, date: b.date });
+  if (conflicts.some(tb => slotsConflict(tb.slot || 'full', slot))) {
+    toast(`${target.fullName} already has a ${slotShort(slot)} booking that day`, 'error');
+    return;
+  }
+
+  try {
+    deleteBooking(bookingId);
+    createBooking({ userId: targetUserId, deskId: b.deskId, date: b.date, slot, bookedByUserId: currentUser.id });
+    sendPerchNotification(
+      'Desk handed to you',
+      `${currentUser.fullName} passed desk ${b.deskId} to you for ${displayShortDate(b.date)}`
+    );
+    toast(`Desk ${b.deskId} handed to ${target.fullName.split(' ')[0]}`, 'success');
+    renderMyBookings();
+  } catch (e) {
+    try { createBooking({ userId: currentUser.id, deskId: b.deskId, date: b.date, slot }); } catch {}
+    toast(e.message || 'Hand-over failed — booking restored', 'error');
+    renderMyBookings();
+  }
+}
+
+function promptCancelFromManage(bookingId, deskId, date) {
+  showModal(`
+    <div class="modal-title">Cancel Booking</div>
+    <div class="modal-desc">
+      Cancel your booking for desk <strong>${deskId}</strong> on <strong>${displayDate(date)}</strong>?<br>
+      <span style="font-size:12.5px;color:var(--text-muted)">The slot returns to the pool immediately.</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" onclick="showManageBookingModal('${bookingId}')">&larr; Back</button>
+      <button class="btn btn-danger" onclick="doCancel('${bookingId}','${deskId}')">Yes, cancel it</button>
+    </div>
+  `);
 }
 
 // ── Who's In ───────────────────────────────────────────────────────────────
