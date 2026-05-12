@@ -1941,7 +1941,7 @@ function renderFloorPlan() {
   // Always load from the floorplans folder — imageUrl in settings only used for
   // admin-uploaded overrides (base64). For path-based URLs always rebuild from floorKey.
   const storedUrl = activePlan?.imageUrl || '';
-  const imgSrc = storedUrl.startsWith('data:') ? storedUrl : `../floorplans/${floorKey}.png`;
+  const imgSrc = storedUrl.startsWith('data:') ? storedUrl : `/floorplans/${floorKey}.png`;
 
   const tabs = plans.map(p => `
     <button class="floor-tab${floorKey === p.floorKey ? ' active' : ''}"
