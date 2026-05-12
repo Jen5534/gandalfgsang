@@ -985,8 +985,7 @@ async function renderDashboard() {
             <span class="anchor-alert-weekday">${parseDate(d).toLocaleDateString('en-GB',{weekday:'long'})}</span>
             <span class="anchor-alert-dmy">${parseDate(d).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</span>
           </div>
-          <span class="pill pill-amber" style="font-size:11px">Anchor day</span>
-          <button class="btn btn-sm btn-primary" style="margin-left:auto" onclick="navigateToBookDate('${d}')">Book desk</button>
+          <span class="pill pill-amber" style="font-size:11px;margin-left:auto">Anchor day</span>
         </div>`;
     }).join('');
     return `
