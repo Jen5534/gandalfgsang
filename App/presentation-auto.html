@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Perch — Auto Presentation</title>
+  <link rel="icon" type="image/png" href="perchlogo.png">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green:      #006A4D;
+      --green-mid:  #008F68;
+      --green-glow: #00B37E;
+      --dark:       #080E1A;
+      --dark-2:     #0F172A;
+      --dark-3:     #1E293B;
+      --dark-4:     #334155;
+      --slate:      #64748B;
+      --text:       #E2E8F0;
+      --muted:      #94A3B8;
+      --white:      #F8FAFC;
+    }
+    html, body { height: 100%; overflow: hidden; background: var(--dark); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Helvetica, sans-serif; }
+
+    /* ── Slide engine ─────────────────────────────────────────────────── */
+    #deck { position: relative; width: 100vw; height: calc(100vh - 68px); overflow: hidden; }
+    .slide {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 40px 72px;
+      opacity: 0; pointer-events: none;
+      transform: translateY(22px);
+      transition: opacity 0.42s ease, transform 0.42s ease;
+    }
+    .slide.active   { opacity: 1; transform: translateY(0); pointer-events: all; }
+    .slide.dark     { background: linear-gradient(145deg, #060c16 0%, #0d1829 60%, #0f1f30 100%); color: var(--white); }
+    .slide.mid      { background: linear-gradient(145deg, #07111e 0%, #0b1a2e 100%); color: var(--white); }
+    .slide.light    { background: #F0F4F8; color: #1E293B; }
+    .slide.hero     { background: radial-gradient(ellipse at 25% 60%, rgba(0,143,104,0.28) 0%, transparent 55%), radial-gradient(ellipse at 80% 20%, rgba(0,106,77,0.18) 0%, transparent 50%), linear-gradient(145deg, #040a13 0%, #0a1525 100%); color: var(--white); }
+    .slide.hero-end { background: radial-gradient(ellipse at 75% 55%, rgba(0,143,104,0.32) 0%, transparent 55%), linear-gradient(145deg, #040a13 0%, #081220 100%); color: var(--white); }
+
+    /* ── HUD ──────────────────────────────────────────────────────────── */
+    #progress { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: rgba(255,255,255,0.07); z-index: 200; }
+    #prog-fill { height: 100%; background: linear-gradient(90deg, var(--green), var(--green-glow)); transition: width 0.4s ease; }
+
+    /* ── Typography ───────────────────────────────────────────────────── */
+    .eyebrow  { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: var(--green-glow); margin-bottom: 10px; }
+    .h1       { font-size: clamp(38px, 5.5vw, 68px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.05; }
+    .h2       { font-size: clamp(24px, 3.2vw, 40px); font-weight: 800; letter-spacing: -0.025em; line-height: 1.1; }
+    .h3       { font-size: clamp(14px, 1.8vw, 20px); font-weight: 700; line-height: 1.25; }
+    .body     { font-size: 13px; line-height: 1.65; color: var(--muted); }
+    .accent   { color: var(--green-glow); }
+    .bar      { width: 44px; height: 4px; background: linear-gradient(90deg, var(--green), var(--green-glow)); border-radius: 2px; margin: 12px 0 18px; }
+
+    /* ── Layout ───────────────────────────────────────────────────────── */
+    .inner    { width: 100%; max-width: 1080px; }
+    .cols-2   { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; }
+    .cols-3   { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .cols-4   { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+    /* ── Cards ────────────────────────────────────────────────────────── */
+    .card-glass { background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.09); border-radius: 14px; padding: 20px; }
+    .card-white { background: #fff; border: 1px solid #E2E8F0; border-radius: 14px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.07); }
+    .card-green { background: rgba(0,106,77,0.18); border: 1px solid rgba(0,179,126,0.25); border-radius: 14px; padding: 20px; }
+    .card-amber { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.25); border-radius: 14px; padding: 20px; }
+
+    /* ── Stat block ───────────────────────────────────────────────────── */
+    .stat     { text-align: center; padding: 20px 14px; }
+    .stat-n   { font-size: clamp(28px, 3.8vw, 48px); font-weight: 900; color: var(--green-glow); line-height: 1; }
+    .stat-l   { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
+
+    /* ── Feature icon card ────────────────────────────────────────────── */
+    .feat     { background: rgba(255,255,255,0.045); border: 1px solid rgba(255,255,255,0.08); border-radius: 13px; padding: 16px; }
+    .feat-ico { width: 40px; height: 40px; border-radius: 11px; background: rgba(0,106,77,0.25); border: 1px solid rgba(0,179,126,0.2); display: flex; align-items: center; justify-content: center; margin-bottom: 10px; color: var(--green-glow); }
+    .feat-nm  { font-size: 12px; font-weight: 700; color: #F1F5F9; margin-bottom: 4px; }
+    .feat-ds  { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+    /* ── Tag / pill ───────────────────────────────────────────────────── */
+    .tag      { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }
+    .tag-g    { background: rgba(0,179,126,0.15); color: var(--green-glow); }
+    .tag-b    { background: rgba(59,130,246,0.15); color: #60A5FA; }
+    .tag-a    { background: rgba(245,158,11,0.15); color: #FBBF24; }
+    .tag-r    { background: rgba(239,68,68,0.15); color: #F87171; }
+    .tag-p    { background: rgba(167,139,250,0.15); color: #A78BFA; }
+
+    /* ── Architecture layers ──────────────────────────────────────────── */
+    .arch-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: center; }
+    .arch-box { padding: 7px 14px; border-radius: 8px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+    .arch-box-default { background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); color: #CBD5E1; }
+    .arch-box-green   { background: rgba(0,106,77,0.3); border: 1px solid rgba(0,179,126,0.35); color: #6EE7B7; }
+    .arch-box-blue    { background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); color: #93C5FD; }
+    .arch-box-amber   { background: rgba(245,158,11,0.15); border: 1px solid rgba(245,158,11,0.3); color: #FCD34D; }
+    .arch-layer { margin-bottom: 8px; }
+    .arch-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 7px; }
+    .arch-arrow-row { text-align: center; color: var(--slate); font-size: 16px; margin: 2px 0; }
+
+    /* ── Security grid item ───────────────────────────────────────────── */
+    .sec-item { display: flex; gap: 13px; align-items: flex-start; padding: 14px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 11px; }
+    .sec-ico  { width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .sec-t    { font-size: 13px; font-weight: 700; color: #F1F5F9; margin-bottom: 3px; }
+    .sec-d    { font-size: 11px; color: var(--muted); line-height: 1.45; }
+
+    /* ── Roadmap item ─────────────────────────────────────────────────── */
+    .rm-item  { display: flex; align-items: flex-start; gap: 14px; padding: 12px 16px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; }
+    .rm-phase { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; text-align: center; padding: 4px 0; min-width: 56px; border-radius: 6px; flex-shrink: 0; margin-top: 2px; }
+    .rm-t     { font-size: 13px; font-weight: 700; color: #F1F5F9; }
+    .rm-d     { font-size: 11.5px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+
+    /* ── Bullet list ──────────────────────────────────────────────────── */
+    .blist    { list-style: none; display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+    .blist li { display: flex; gap: 10px; font-size: 13px; color: var(--text); line-height: 1.5; }
+    .blist li::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--green-glow); flex-shrink: 0; margin-top: 7px; }
+
+    /* ── Comparison table ─────────────────────────────────────────────── */
+    .compare-col { padding: 22px; border-radius: 14px; }
+    .compare-col.now  { background: rgba(100,116,139,0.1); border: 1px solid rgba(100,116,139,0.2); }
+    .compare-col.prod { background: rgba(0,106,77,0.14);   border: 1px solid rgba(0,179,126,0.25); }
+    .compare-head { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px; }
+    .compare-row  { display: flex; align-items: flex-start; gap: 9px; font-size: 12.5px; color: var(--text); margin-bottom: 9px; line-height: 1.45; }
+    .compare-row svg { flex-shrink: 0; margin-top: 2px; }
+
+    /* ── Title slide ──────────────────────────────────────────────────── */
+    .title-logo   { width: 80px; height: 80px; margin-bottom: 16px; }
+    .title-main   { font-size: clamp(64px, 10vw, 110px); font-weight: 900; letter-spacing: -0.05em; line-height: 1; background: linear-gradient(135deg, #fff 30%, #6EE7B7 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .title-sub    { font-size: clamp(14px, 2vw, 22px); color: var(--muted); font-weight: 400; margin-top: 12px; max-width: 540px; }
+    .title-badges { display: flex; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+    .title-badge  { padding: 6px 16px; border: 1px solid rgba(255,255,255,0.13); border-radius: 99px; font-size: 12px; color: rgba(255,255,255,0.5); }
+
+    /* ── Demo slide ───────────────────────────────────────────────────── */
+    .url-chip { display: inline-flex; align-items: center; gap: 10px; padding: 12px 22px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14); border-radius: 12px; font-family: 'Courier New', monospace; font-size: 17px; color: var(--green-glow); margin-top: 14px; }
+    .big-cta  { font-size: clamp(32px, 4.5vw, 56px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.15; }
+    .gh-link  { display: inline-flex; align-items: center; gap: 8px; margin-top: 18px; padding: 10px 18px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; font-size: 13px; color: var(--text); text-decoration: none; }
+    .gh-link:hover { background: rgba(255,255,255,0.12); }
+
+    /* ════════════════════════════════════════════════════════════════════
+       AUTO-PRESENTATION ADDITIONS
+       ════════════════════════════════════════════════════════════════════ */
+
+    /* ── Entrance animation keyframes ────────────────────────────────── */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(22px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeInLeft {
+      from { opacity: 0; transform: translateX(-18px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes wavePulse {
+      0%, 100% { transform: scaleY(0.2); }
+      50%       { transform: scaleY(1); }
+    }
+    @keyframes spinIn {
+      from { opacity: 0; transform: scale(0.7) rotate(-8deg); }
+      to   { opacity: 1; transform: scale(1) rotate(0); }
+    }
+
+    /* ── Elements that animate when their slide is active ────────────── */
+    .feat, .sec-item, .rm-item, .stat,
+    .arch-layer, .compare-col, .card-glass,
+    .url-chip, .gh-link { opacity: 0; }
+
+    .slide.active .feat,
+    .slide.active .sec-item,
+    .slide.active .rm-item,
+    .slide.active .stat,
+    .slide.active .arch-layer,
+    .slide.active .compare-col,
+    .slide.active .card-glass,
+    .slide.active .url-chip,
+    .slide.active .gh-link { animation: fadeInUp 0.45s ease both; }
+
+    /* Title slide special: logo + text animate in */
+    .title-logo { opacity: 0; }
+    .slide.active .title-logo { animation: spinIn 0.55s 0.1s ease both; }
+    .title-main, .title-sub, .title-badges { opacity: 0; }
+    .slide.active .title-main   { animation: fadeInUp 0.6s 0.45s ease both; }
+    .slide.active .title-sub    { animation: fadeInUp 0.5s 0.75s ease both; }
+    .slide.active .title-badges { animation: fadeInUp 0.5s 1.0s  ease both; }
+
+    /* Section headers animate in */
+    .eyebrow, .h2, .bar { opacity: 0; }
+    .slide.active .eyebrow { animation: fadeInLeft 0.4s 0.08s ease both; }
+    .slide.active .h2      { animation: fadeInUp  0.5s 0.2s  ease both; }
+    .slide.active .bar     { animation: fadeInUp  0.3s 0.38s ease both; }
+
+    /* ── Control bar ─────────────────────────────────────────────────── */
+    #ctrl-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 68px;
+      background: rgba(4, 8, 18, 0.96);
+      backdrop-filter: blur(18px);
+      border-top: 1px solid rgba(255,255,255,0.07);
+      display: flex; align-items: center; gap: 0;
+      z-index: 300;
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+    #ctrl-bar.hidden-bar { opacity: 0; pointer-events: none; transform: translateY(10px); }
+
+    .ctrl-section { display: flex; align-items: center; gap: 10px; padding: 0 20px; }
+    .ctrl-section + .ctrl-section { border-left: 1px solid rgba(255,255,255,0.07); }
+    .ctrl-section.grow { flex: 1; justify-content: center; }
+
+    /* Slide counter + mini progress */
+    #ctrl-slide-info { display: flex; flex-direction: column; gap: 5px; min-width: 120px; }
+    #ctrl-slide-num  { font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.45); font-variant-numeric: tabular-nums; letter-spacing: 0.06em; }
+    #ctrl-mini-track { height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; width: 100px; border-radius: 3px; overflow: hidden; }
+    #ctrl-mini-fill  { height: 100%; background: linear-gradient(90deg, var(--green), var(--green-glow)); border-radius: 3px; transition: width 0.4s ease; }
+
+    /* Main transport buttons */
+    .ctrl-btn {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.6); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, color 0.15s, transform 0.1s;
+      flex-shrink: 0;
+    }
+    .ctrl-btn:hover { background: rgba(255,255,255,0.14); color: #fff; transform: scale(1.05); }
+    .ctrl-btn:active { transform: scale(0.95); }
+    #ctrl-play {
+      width: 44px; height: 44px;
+      background: linear-gradient(135deg, var(--green), var(--green-glow));
+      border: none; color: #fff;
+    }
+    #ctrl-play:hover { filter: brightness(1.15); }
+
+    /* Slide title label */
+    #ctrl-slide-title { font-size: 12px; color: rgba(255,255,255,0.5); max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Waveform */
+    #ctrl-waveform { display: flex; gap: 3px; align-items: center; height: 22px; padding: 0 4px; }
+    .wave-bar {
+      width: 3px; height: 18px;
+      background: var(--green-glow); border-radius: 2px;
+      transform-origin: bottom; transform: scaleY(0.2);
+      opacity: 0.35;
+      transition: opacity 0.3s;
+    }
+    #ctrl-waveform.speaking .wave-bar {
+      opacity: 1;
+      animation: wavePulse 0.7s ease infinite;
+    }
+    .wave-bar:nth-child(1) { animation-delay: 0s;    }
+    .wave-bar:nth-child(2) { animation-delay: 0.14s; }
+    .wave-bar:nth-child(3) { animation-delay: 0.28s; }
+    .wave-bar:nth-child(4) { animation-delay: 0.42s; }
+    .wave-bar:nth-child(5) { animation-delay: 0.56s; }
+
+    /* Speed, mute, auto buttons */
+    .ctrl-speed-grp { display: flex; gap: 4px; }
+    .ctrl-speed-btn {
+      padding: 5px 9px; border-radius: 7px; font-size: 11px; font-weight: 700;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+      color: rgba(255,255,255,0.4); cursor: pointer; transition: all 0.15s;
+    }
+    .ctrl-speed-btn.active { background: rgba(0,179,126,0.2); border-color: rgba(0,179,126,0.4); color: var(--green-glow); }
+    .ctrl-speed-btn:hover:not(.active) { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+
+    .ctrl-toggle {
+      padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 700;
+      background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+      color: rgba(255,255,255,0.4); cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .ctrl-toggle.active { background: rgba(0,179,126,0.15); border-color: rgba(0,179,126,0.35); color: var(--green-glow); }
+    .ctrl-toggle:hover { background: rgba(255,255,255,0.09); }
+    .ctrl-toggle .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+    /* Narration transcript toast */
+    #narr-toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      max-width: 700px; width: 90%;
+      background: rgba(8,14,26,0.92); backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.08); border-radius: 12px;
+      padding: 12px 18px; font-size: 13px; color: rgba(255,255,255,0.55);
+      line-height: 1.6; text-align: center;
+      z-index: 250; pointer-events: none;
+      opacity: 0; transition: opacity 0.3s ease;
+    }
+    #narr-toast.visible { opacity: 1; }
+
+    /* Keyboard hint */
+    #nav-hint { position: fixed; bottom: 82px; left: 50%; transform: translateX(-50%); font-size: 10px; color: rgba(255,255,255,0.15); z-index: 200; letter-spacing: 0.12em; text-transform: uppercase; pointer-events: none; }
+  </style>
+</head>
+<body>
+
+<div id="progress"><div id="prog-fill"></div></div>
+<div id="nav-hint">← → Space · Click to advance</div>
+<div id="narr-toast"></div>
+
+<div id="deck">
+
+  <!-- ── 1. TITLE ─────────────────────────────────────────────────────── -->
+  <section class="slide hero active" id="s1" data-title="Welcome to Perch">
+    <div class="inner" style="text-align:center;display:flex;flex-direction:column;align-items:center">
+      <img src="perchlogo.png" class="title-logo" alt="Perch">
+      <div class="title-main">Perch</div>
+      <div class="title-sub">Smart Desk Booking for the Hybrid Era — built for the people, run for the business.</div>
+      <div class="title-badges">
+        <span class="title-badge">Hackathon 2025</span>
+        <span class="title-badge">50 users · 3 sites · 6 teams</span>
+        <span class="title-badge">Powered by Claude AI</span>
+        <span class="title-badge">Enterprise-ready architecture</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 2. THE PROBLEM ───────────────────────────────────────────────── -->
+  <section class="slide dark" id="s2" data-title="The Challenge">
+    <div class="inner">
+      <div class="eyebrow">The Challenge</div>
+      <div class="h2">Hybrid working creates <span class="accent">invisible waste</span><br>and daily friction</div>
+      <div class="bar"></div>
+      <div class="cols-4" style="margin-bottom:18px">
+        <div class="card-glass stat"><div class="stat-n">68%</div><div class="stat-l">of office space is underutilised post-pandemic</div></div>
+        <div class="card-glass stat"><div class="stat-n">3.2</div><div class="stat-l">average days per week employees are in the office</div></div>
+        <div class="card-glass stat"><div class="stat-n">£8.4k</div><div class="stat-l">wasted per year per empty desk in central London</div></div>
+        <div class="card-glass stat"><div class="stat-n">12 min</div><div class="stat-l">average time lost per day searching for a desk</div></div>
+      </div>
+      <div class="card-glass" style="border-color:rgba(0,179,126,0.2);padding:18px 24px">
+        <div style="font-size:14px;color:#CBD5E1;line-height:1.7;font-style:italic">
+          "Teams need to sit together. Desks must match preferences. Plans change at the last minute.
+          The booking experience must be so smooth it becomes <strong style="color:var(--green-glow)">invisible</strong> — and the data must make the business smarter."
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 3. FEATURES OVERVIEW ─────────────────────────────────────────── -->
+  <section class="slide dark" id="s3" data-title="Ten Capabilities">
+    <div class="inner">
+      <div class="eyebrow">What We Built</div>
+      <div class="h2">Ten capabilities. One cohesive platform.</div>
+      <div class="bar"></div>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px">
+        <div class="feat"><div class="feat-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="16" x2="15" y2="16"/><line x1="12" y1="13" x2="12" y2="19"/></svg></div><div class="feat-nm">Smart Booking</div><div class="feat-ds">AI desk recommendations based on neighbourhood, team, and preferences</div></div>
+        <div class="feat"><div class="feat-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="feat-nm">Walk-in Auto-Book</div><div class="feat-ds">Proximity detection automatically books the best available desk</div></div>
+        <div class="feat"><div class="feat-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 014-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg></div><div class="feat-nm">Friction-Free Change</div><div class="feat-ds">Shorten, swap, or hand-over a booking in seconds</div></div>
+        <div class="feat"><div class="feat-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><div class="feat-nm">Team Coordination</div><div class="feat-ds">Request-approve team bookings, delegate on behalf of others</div></div>
+        <div class="feat"><div class="feat-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div><div class="feat-nm">Floor Plan View</div><div class="feat-ds">Live visual desk map showing who is booked where</div></div>
+        <div class="feat"><div class="feat-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><circle cx="8" cy="16" r="1" fill="currentColor"/><circle cx="12" cy="16" r="1" fill="currentColor"/><circle cx="16" cy="16" r="1" fill="currentColor"/></svg></div><div class="feat-nm">Anchor Day Policy</div><div class="feat-ds">Admin-configured office days per team and site, with push notifications</div></div>
+        <div class="feat"><div class="feat-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><div class="feat-nm">AI Chat Assistant</div><div class="feat-ds">Natural language interface — book, cancel, and explore</div></div>
+        <div class="feat"><div class="feat-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></div><div class="feat-nm">Admin Analytics</div><div class="feat-ds">Occupancy trends, no-show rates, team compliance, utilisation</div></div>
+        <div class="feat"><div class="feat-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg></div><div class="feat-nm">Claude AI Analysis</div><div class="feat-ds">AI workplace insights: what's working, what isn't, what to do next</div></div>
+        <div class="feat"><div class="feat-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><line x1="9" y1="10" x2="15" y2="10"/><line x1="12" y1="7" x2="12" y2="13"/></svg></div><div class="feat-nm">User Feedback</div><div class="feat-ds">In-app suggestions and issue reports, triaged in admin console</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4. INTELLIGENT BOOKING ────────────────────────────────────────── -->
+  <section class="slide dark" id="s4" data-title="Intelligent Booking">
+    <div class="inner">
+      <div class="eyebrow">Core Experience</div>
+      <div class="h2">Booking that <span class="accent">thinks ahead</span></div>
+      <div class="bar"></div>
+      <div class="cols-2" style="gap:22px">
+        <div>
+          <div class="card-glass" style="margin-bottom:13px">
+            <div class="h3" style="color:#F1F5F9;margin-bottom:9px">🎯 Smart Desk Scoring</div>
+            <ul class="blist">
+              <li>Matches preferred neighbourhood and desk features</li>
+              <li>Boosts scores when teammates are already booked nearby</li>
+              <li>Adjusts for anchor days — anticipates higher occupancy</li>
+              <li>Learns from working pattern (office vs remote days)</li>
+            </ul>
+          </div>
+          <div class="card-glass">
+            <div class="h3" style="color:#F1F5F9;margin-bottom:9px">📅 Anchor Day Policy</div>
+            <ul class="blist">
+              <li>Admin sets expected office days per team (e.g. Platform Eng: Wed + Thu)</li>
+              <li>Admin sets site-wide anchor days (e.g. Edinburgh: Wednesday all-hands)</li>
+              <li>Effective days = union of personal + team + site settings</li>
+              <li>Push notification + dashboard alert for unbooked anchor days in next 14 days</li>
+            </ul>
+          </div>
+        </div>
+        <div>
+          <div class="card-glass" style="margin-bottom:13px">
+            <div class="h3" style="color:#F1F5F9;margin-bottom:9px">⚡ Walk-in Auto-Booking</div>
+            <ul class="blist">
+              <li>Building scan-in (NFC / QR) triggers desk allocation if none exists</li>
+              <li>Browser geolocation watches for proximity to office (300m radius)</li>
+              <li>Picks the highest-scoring available desk automatically</li>
+              <li>Confirmed via push notification — one tap to accept or dismiss</li>
+            </ul>
+          </div>
+          <div class="card-glass">
+            <div class="h3" style="color:#F1F5F9;margin-bottom:9px">🔄 Friction-Free Change</div>
+            <ul class="blist">
+              <li>Shorten a full-day booking to AM or PM with one tap</li>
+              <li>Swap to any other available desk, same day or future</li>
+              <li>Hand-over to a teammate — checks their bookings for conflicts first</li>
+              <li>Freed capacity is immediately back in the pool for others</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 5. ADMIN & AI ──────────────────────────────────────────────────── -->
+  <section class="slide dark" id="s5" data-title="Admin & AI">
+    <div class="inner">
+      <div class="eyebrow">Admin Console</div>
+      <div class="h2">Data-driven decisions, <span class="accent">AI-accelerated</span></div>
+      <div class="bar"></div>
+      <div class="cols-2" style="gap:20px">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="card-glass">
+            <div style="font-size:12px;font-weight:700;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px">Analytics</div>
+            <div style="font-size:13px;color:var(--text);line-height:1.6">Occupancy trends (30 day / 7 day), no-show rates by team, desk utilisation by neighbourhood, anchor day compliance scores — all from real booking data.</div>
+          </div>
+          <div class="card-glass">
+            <div style="font-size:12px;font-weight:700;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px">Neighbourhood Management</div>
+            <div style="font-size:13px;color:var(--text);line-height:1.6">Group desks into named zones per building. Assign colours, attach teams, define which desks belong where. Drives smart booking and analytics.</div>
+          </div>
+          <div class="card-glass">
+            <div style="font-size:12px;font-weight:700;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px">Floor Plan Management</div>
+            <div style="font-size:13px;color:var(--text);line-height:1.6">Upload floor plan images per building and floor. Assign to teams. User-facing view updates dynamically — no code changes required.</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="card-glass" style="border-color:rgba(0,179,126,0.25)">
+            <div style="font-size:12px;font-weight:700;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px">Claude AI Analysis</div>
+            <div style="font-size:13px;color:var(--text);line-height:1.65;margin-bottom:12px">Paste your Anthropic API key, click Run — Claude analyses 30 days of booking data and returns structured insights:</div>
+            <div style="display:flex;flex-direction:column;gap:7px">
+              <div style="display:flex;gap:8px;align-items:center;font-size:12.5px;color:#6EE7B7"><span style="font-size:15px">✓</span> What's working well (high occupancy, good team co-location)</div>
+              <div style="display:flex;gap:8px;align-items:center;font-size:12.5px;color:#FBBF24"><span style="font-size:15px">⚠</span> Areas of concern (high no-shows, underused neighbourhoods)</div>
+              <div style="display:flex;gap:8px;align-items:center;font-size:12.5px;color:#93C5FD"><span style="font-size:15px">→</span> Concrete recommendations with justification</div>
+            </div>
+          </div>
+          <div class="card-glass">
+            <div style="font-size:12px;font-weight:700;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:7px">Feedback Management</div>
+            <div style="font-size:13px;color:var(--text);line-height:1.6">Users submit suggestions, bug reports, and praise with a star rating. Admins triage via new → reviewed → actioned status, with category stats at a glance.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 6. ARCHITECTURE TODAY ─────────────────────────────────────────── -->
+  <section class="slide dark" id="s6" data-title="Architecture">
+    <div class="inner">
+      <div class="eyebrow">Technical Architecture</div>
+      <div class="h2">Built to <span class="accent">demo fast</span> — designed to <span class="accent">scale</span></div>
+      <div class="bar"></div>
+      <div class="cols-2" style="gap:28px;align-items:start">
+        <div>
+          <div class="compare-col now">
+            <div class="compare-head" style="color:var(--muted)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:5px"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Today — Hackathon Build</div>
+            <div class="compare-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Static HTML / CSS / JS — zero build step, runs anywhere</div>
+            <div class="compare-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>localStorage for all data — no database needed to demo</div>
+            <div class="compare-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Node.js server (50 lines) proxies Anthropic API calls</div>
+            <div class="compare-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Mock SSO — auto-selects from 50 realistic user profiles</div>
+            <div class="compare-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Served at localhost:3000 — no cloud account required</div>
+          </div>
+        </div>
+        <div>
+          <div class="compare-col prod">
+            <div class="compare-head" style="color:var(--green-glow)"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-1px;margin-right:5px"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>Production — Enterprise Target</div>
+            <div class="compare-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Azure Static Web Apps — global CDN, built-in SSL, CI/CD from GitHub</div>
+            <div class="compare-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Azure Cosmos DB — multi-region, fully managed, real-time sync</div>
+            <div class="compare-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Azure Functions — serverless API layer, scales to zero</div>
+            <div class="compare-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Azure AD (Entra ID) — real SSO, MFA, Conditional Access</div>
+            <div class="compare-row"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>Azure SignalR — live booking updates pushed to all clients</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-glass" style="margin-top:14px;padding:12px 18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+        <span class="tag tag-g">SPA</span><span class="tag tag-b">Serverless</span><span class="tag tag-a">Event-driven</span><span class="tag tag-p">Real-time</span>
+        <span style="font-size:12px;color:var(--muted);margin-left:auto">The SPA architecture means the frontend ships unchanged — only the data layer and auth layer need to be swapped.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 7. ENTERPRISE ARCHITECTURE DIAGRAM ───────────────────────────── -->
+  <section class="slide mid" id="s7" data-title="Enterprise Architecture">
+    <div class="inner">
+      <div class="eyebrow">Enterprise Architecture</div>
+      <div class="h2" style="margin-bottom:18px">Azure-native, <span class="accent">defence-in-depth</span></div>
+      <div class="arch-layer"><div class="arch-label">Users &amp; Clients</div><div class="arch-row"><div class="arch-box arch-box-default">Browser (SPA)</div><div class="arch-box arch-box-default">iOS / Android PWA</div><div class="arch-box arch-box-default">Microsoft Teams Bot</div><div class="arch-box arch-box-default">Outlook Add-in</div></div></div>
+      <div class="arch-arrow-row">↓</div>
+      <div class="arch-layer"><div class="arch-label">Edge &amp; Security Layer</div><div class="arch-row"><div class="arch-box arch-box-amber">Azure Front Door + WAF</div><div class="arch-box arch-box-amber">DDoS Protection Standard</div><div class="arch-box arch-box-amber">Rate Limiting</div><div class="arch-box arch-box-amber">TLS 1.3 termination</div></div></div>
+      <div class="arch-arrow-row">↓</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:6px">
+        <div><div class="arch-label">Frontend</div><div class="arch-box arch-box-green" style="display:inline-block;width:100%;text-align:center">Azure Static Web Apps (SPA + CDN)</div></div>
+        <div><div class="arch-label">API / Business Logic</div><div class="arch-row"><div class="arch-box arch-box-green">Azure Functions</div><div class="arch-box arch-box-green">API Management</div></div></div>
+      </div>
+      <div class="arch-arrow-row">↓</div>
+      <div class="arch-layer"><div class="arch-label">Platform Services</div><div class="arch-row"><div class="arch-box arch-box-blue">Azure AD / Entra ID<br><span style="font-weight:400;font-size:10px">SSO · MFA · Conditional Access</span></div><div class="arch-box arch-box-blue">Cosmos DB<br><span style="font-weight:400;font-size:10px">Bookings · Settings · Users</span></div><div class="arch-box arch-box-blue">Azure Key Vault<br><span style="font-weight:400;font-size:10px">API keys · Secrets</span></div><div class="arch-box arch-box-blue">SignalR Service<br><span style="font-weight:400;font-size:10px">Live desk updates</span></div><div class="arch-box arch-box-blue">Application Insights<br><span style="font-weight:400;font-size:10px">Monitoring · Alerts</span></div><div class="arch-box arch-box-blue">Anthropic Claude<br><span style="font-weight:400;font-size:10px">AI analysis · Chat</span></div></div></div>
+      <div class="arch-arrow-row">↓</div>
+      <div class="arch-layer"><div class="arch-label">DevOps &amp; Governance</div><div class="arch-row"><div class="arch-box arch-box-default">GitHub Actions CI/CD</div><div class="arch-box arch-box-default">Bicep / Terraform IaC</div><div class="arch-box arch-box-default">Dev → Staging → Prod</div><div class="arch-box arch-box-default">Azure Policy &amp; Defender</div></div></div>
+    </div>
+  </section>
+
+  <!-- ── 8. SECURITY MODEL ─────────────────────────────────────────────── -->
+  <section class="slide dark" id="s8" data-title="Security Model">
+    <div class="inner">
+      <div class="eyebrow">Enterprise Security</div>
+      <div class="h2">Zero Trust. Defence in depth. <span class="accent">By design.</span></div>
+      <div class="bar"></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+        <div class="sec-item"><div class="sec-ico" style="background:rgba(59,130,246,0.15)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div><div class="sec-t">Authentication</div><div class="sec-d">Azure AD / Entra ID with SAML 2.0 / OIDC. MFA enforced. Conditional Access blocks non-compliant devices.</div></div></div>
+        <div class="sec-item"><div class="sec-ico" style="background:rgba(0,106,77,0.2)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="23 21 17 15"/><circle cx="20" cy="18" r="3"/></svg></div><div><div class="sec-t">Authorisation (RBAC)</div><div class="sec-d">Three roles: User, Manager, Admin. Fine-grained OAuth 2.0 scopes. Principle of least privilege.</div></div></div>
+        <div class="sec-item"><div class="sec-ico" style="background:rgba(245,158,11,0.15)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div><div><div class="sec-t">Encryption</div><div class="sec-d">TLS 1.3 in transit (HSTS enforced). AES-256 at rest. Key Vault manages all secrets — no plaintext in code.</div></div></div>
+        <div class="sec-item"><div class="sec-ico" style="background:rgba(167,139,250,0.15)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A78BFA" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div><div><div class="sec-t">Audit Logging</div><div class="sec-d">All booking and admin events streamed to Azure Monitor. Sentinel SIEM integration for anomaly alerting.</div></div></div>
+        <div class="sec-item"><div class="sec-ico" style="background:rgba(239,68,68,0.12)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#F87171" stroke-width="2"><polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/><polyline points="12 22 12 15.5"/><polyline points="22 8.5 12 15.5 2 8.5"/></svg></div><div><div class="sec-t">Network Security</div><div class="sec-d">Azure Front Door WAF with OWASP 3.2 rule set. DDoS Protection Standard. Private endpoints — no public DB exposure.</div></div></div>
+        <div class="sec-item"><div class="sec-ico" style="background:rgba(34,211,238,0.12)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#67E8F9" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20"/></svg></div><div><div class="sec-t">API Security</div><div class="sec-d">API Management enforces OAuth 2.0 bearer tokens, rate limiting per user and IP, and request validation.</div></div></div>
+        <div class="sec-item"><div class="sec-ico" style="background:rgba(52,211,153,0.12)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6EE7B7" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.8 19.8 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.8 19.8 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z"/></svg></div><div><div class="sec-t">Penetration Testing</div><div class="sec-d">OWASP Top 10 via SAST and DAST in CI/CD. Annual external pen test. Dependency scanning on every PR.</div></div></div>
+        <div class="sec-item"><div class="sec-ico" style="background:rgba(251,191,36,0.12)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FCD34D" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div><div><div class="sec-t">Compliance &amp; Privacy</div><div class="sec-d">GDPR by design: data minimisation, right-to-erasure API, 13-month retention. UK data residency. ISO 27001 aligned.</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 9. HOSTING & DEPLOYMENT ──────────────────────────────────────── -->
+  <section class="slide dark" id="s9" data-title="Hosting & Deployment">
+    <div class="inner">
+      <div class="eyebrow">Hosting &amp; Deployment</div>
+      <div class="h2">Ship fast. <span class="accent">Stay safe.</span> Scale automatically.</div>
+      <div class="bar"></div>
+      <div class="cols-2" style="gap:20px;align-items:start">
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="card-glass">
+            <div style="font-size:12px;font-weight:700;color:var(--green-glow);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">Azure Static Web Apps</div>
+            <ul class="blist">
+              <li>Global CDN with &lt;50ms TTFB from any UK/EU location</li>
+              <li>Automatic SSL certificates — zero configuration</li>
+              <li>GitHub Actions: push to main → deploy in 60s</li>
+              <li>Preview environments per pull request</li>
+            </ul>
+          </div>
+          <div class="card-glass">
+            <div style="font-size:12px;font-weight:700;color:var(--green-glow);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">Azure Functions (Serverless API)</div>
+            <ul class="blist">
+              <li>Scales to zero — no idle compute cost</li>
+              <li>Scales to thousands of concurrent requests automatically</li>
+              <li>Node.js runtime — direct port of existing proxy code</li>
+              <li>VNet integration for private Cosmos DB access</li>
+            </ul>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="card-glass">
+            <div style="font-size:12px;font-weight:700;color:var(--green-glow);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">CI/CD Pipeline</div>
+            <ul class="blist">
+              <li>Branch strategy: feature → develop → staging → main</li>
+              <li>Automated SAST scanning on every PR</li>
+              <li>Blue-green deployments — zero-downtime releases</li>
+              <li>Infrastructure as Code via Azure Bicep</li>
+            </ul>
+          </div>
+          <div class="card-glass">
+            <div style="font-size:12px;font-weight:700;color:var(--green-glow);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">Estimated Cost (per month)</div>
+            <div style="display:flex;flex-direction:column;gap:6px;font-size:13px">
+              <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:5px"><span>Static Web Apps (Standard)</span><span style="color:var(--green-glow)">~£9</span></div>
+              <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:5px"><span>Azure Functions (1M exec/mo)</span><span style="color:var(--green-glow)">Free tier</span></div>
+              <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:5px"><span>Cosmos DB (serverless)</span><span style="color:var(--green-glow)">~£20</span></div>
+              <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:5px"><span>Azure AD (P1 × 50 users)</span><span style="color:var(--green-glow)">~£90</span></div>
+              <div style="display:flex;justify-content:space-between;color:var(--green-glow);font-weight:700;padding-top:4px"><span>Total estimate (50 users)</span><span>~£120/mo</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 10. ROADMAP ───────────────────────────────────────────────────── -->
+  <section class="slide dark" id="s10" data-title="Roadmap">
+    <div class="inner">
+      <div class="eyebrow">What's Next</div>
+      <div class="h2">A platform, not just an app</div>
+      <div class="bar"></div>
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div class="rm-item"><div class="rm-phase tag-g" style="background:rgba(0,179,126,0.15);color:var(--green-glow)">Phase 1<br>0–3 mo</div><div><div class="rm-t">Real backend + Azure AD SSO</div><div class="rm-d">Replace localStorage with Cosmos DB. Wire up genuine Azure AD single sign-on. Deploy to Azure with GitHub Actions CI/CD pipeline. Full production parity.</div></div></div>
+        <div class="rm-item"><div class="rm-phase tag-b" style="background:rgba(59,130,246,0.15);color:#60A5FA">Phase 2<br>3–6 mo</div><div><div class="rm-t">Calendar &amp; collaboration integrations</div><div class="rm-d">Outlook / Google Calendar sync — bookings appear as calendar events. Microsoft Teams bot for booking within Teams. Slack webhooks for anchor day reminders.</div></div></div>
+        <div class="rm-item"><div class="rm-phase tag-a" style="background:rgba(245,158,11,0.15);color:#FBBF24">Phase 3<br>6–12 mo</div><div><div class="rm-t">IoT occupancy sensors &amp; PWA</div><div class="rm-d">Integrate real desk sensors for actual vs booked occupancy. Native PWA with offline support and biometric login for iOS / Android.</div></div></div>
+        <div class="rm-item"><div class="rm-phase tag-p" style="background:rgba(167,139,250,0.15);color:#A78BFA">Phase 4<br>12+ mo</div><div><div class="rm-t">Predictive intelligence &amp; facilities integration</div><div class="rm-d">ML models predict anchor day no-shows 48h in advance. Integrate with facilities management (CAFM). Power BI embedded analytics for leadership dashboards.</div></div></div>
+      </div>
+      <div class="card-glass" style="margin-top:14px;padding:13px 18px;border-color:rgba(0,179,126,0.2)">
+        <div style="font-size:13px;color:var(--text);line-height:1.6"><strong style="color:var(--green-glow)">Open architecture:</strong> The SPA + serverless + Cosmos DB pattern means individual components can be replaced without touching the others — swap the AI provider, add a new integration, or migrate the database without a full rewrite.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 11. WHY PERCH WINS ─────────────────────────────────────────────── -->
+  <section class="slide dark" id="s11" data-title="Why Perch Wins">
+    <div class="inner">
+      <div class="eyebrow">Why Perch</div>
+      <div class="h2">Not just a booking tool — <span class="accent">a workplace intelligence platform</span></div>
+      <div class="bar"></div>
+      <div class="cols-3" style="gap:14px;margin-bottom:14px">
+        <div class="card-glass" style="border-color:rgba(0,179,126,0.2)"><div style="font-size:28px;margin-bottom:10px">🎯</div><div class="h3" style="color:#F1F5F9;margin-bottom:7px">Frictionless by design</div><div class="body">Walk-in auto-booking, one-tap change, AI chat — the experience gets out of the way so people can focus on work, not admin.</div></div>
+        <div class="card-glass" style="border-color:rgba(59,130,246,0.2)"><div style="font-size:28px;margin-bottom:10px">📊</div><div class="h3" style="color:#F1F5F9;margin-bottom:7px">Data that drives decisions</div><div class="body">Occupancy trends, team compliance, neighbourhood utilisation — and an AI that turns 30 days of data into actionable recommendations in seconds.</div></div>
+        <div class="card-glass" style="border-color:rgba(167,139,250,0.2)"><div style="font-size:28px;margin-bottom:10px">🏢</div><div class="h3" style="color:#F1F5F9;margin-bottom:7px">Built for enterprise from day one</div><div class="body">Zero Trust security, Azure AD SSO, GDPR-ready data model, RBAC, audit logging — not bolted on later, designed in from the start.</div></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="card-glass" style="flex:1;min-width:160px;padding:14px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px">Stack</div><div style="font-size:12.5px;color:var(--text)">HTML / CSS / JS SPA + Node.js + Azure</div></div>
+        <div class="card-glass" style="flex:1;min-width:160px;padding:14px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px">AI</div><div style="font-size:12.5px;color:var(--text)">Anthropic Claude — chat assistant + admin analysis</div></div>
+        <div class="card-glass" style="flex:1;min-width:160px;padding:14px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px">Coverage</div><div style="font-size:12.5px;color:var(--text)">50 users · 3 sites · 6 teams · 31 desks</div></div>
+        <div class="card-glass" style="flex:1;min-width:160px;padding:14px"><div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:5px">Features</div><div style="font-size:12.5px;color:var(--text)">10 user features · 9 admin views · 1 AI assistant</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 12. DEMO / THANK YOU ──────────────────────────────────────────── -->
+  <section class="slide hero-end" id="s12" data-title="Live Demo">
+    <div class="inner" style="display:flex;gap:60px;align-items:center">
+      <div style="flex:1">
+        <div class="eyebrow">Live Demo</div>
+        <div class="big-cta">Let's see it<br><span class="accent">in action.</span></div>
+        <div class="bar" style="margin-top:18px"></div>
+        <div style="font-size:13.5px;color:var(--muted);line-height:1.7;margin-bottom:18px">
+          Open the app, sign in as any of 50 realistic users across London, Edinburgh, and Leeds.<br>
+          Try booking a desk, managing a team booking, running AI analysis, or previewing the mobile view.
+        </div>
+        <div class="url-chip">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 010 20"/></svg>
+          http://localhost:3000
+        </div>
+        <a href="https://github.com/Jen5534/gandalfgsang" class="gh-link" target="_blank">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+          github.com/Jen5534/gandalfgsang
+        </a>
+      </div>
+      <div style="flex:0 0 auto;text-align:center">
+        <div style="width:180px;height:180px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:10px;margin-bottom:14px">
+          <img src="perchlogo.png" width="72" height="72" alt="Perch" style="opacity:0.9">
+          <div style="font-size:12px;color:var(--muted)">localhost:3000</div>
+        </div>
+        <div style="font-size:12.5px;color:var(--muted)">Start the server:<br>
+          <code style="font-family:monospace;font-size:12px;background:rgba(255,255,255,0.07);padding:6px 12px;border-radius:6px;display:inline-block;margin-top:6px;color:var(--green-glow)">node server.js</code>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div><!-- /deck -->
+
+<!-- ── Control Bar ──────────────────────────────────────────────────────── -->
+<div id="ctrl-bar">
+  <!-- Slide info -->
+  <div class="ctrl-section">
+    <div id="ctrl-slide-info">
+      <div id="ctrl-slide-num">1 / 12</div>
+      <div id="ctrl-mini-track"><div id="ctrl-mini-fill" style="width:8.33%"></div></div>
+    </div>
+  </div>
+
+  <!-- Slide title -->
+  <div class="ctrl-section">
+    <div id="ctrl-slide-title">Welcome to Perch</div>
+  </div>
+
+  <!-- Transport + waveform -->
+  <div class="ctrl-section grow">
+    <button class="ctrl-btn" id="ctrl-prev" title="Previous (←)" onclick="go(-1)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <button class="ctrl-btn" id="ctrl-play" title="Play / Pause (Space)" onclick="togglePlay()">
+      <svg id="play-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      <svg id="pause-icon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="display:none"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+    </button>
+    <button class="ctrl-btn" id="ctrl-next" title="Next (→)" onclick="go(1)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>
+    <div id="ctrl-waveform" class="silent">
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+      <div class="wave-bar"></div>
+    </div>
+  </div>
+
+  <!-- Speed -->
+  <div class="ctrl-section">
+    <div class="ctrl-speed-grp">
+      <button class="ctrl-speed-btn" data-speed="0.8"  onclick="setSpeed(0.8)">0.8×</button>
+      <button class="ctrl-speed-btn active" data-speed="1"   onclick="setSpeed(1)">1×</button>
+      <button class="ctrl-speed-btn" data-speed="1.2"  onclick="setSpeed(1.2)">1.2×</button>
+      <button class="ctrl-speed-btn" data-speed="1.5"  onclick="setSpeed(1.5)">1.5×</button>
+    </div>
+  </div>
+
+  <!-- Mute + Auto -->
+  <div class="ctrl-section">
+    <button class="ctrl-toggle active" id="ctrl-mute-btn" onclick="toggleMute()" title="Toggle narration">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 010 14.14"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>
+      <span id="mute-label">Narration</span>
+    </button>
+    <button class="ctrl-toggle active" id="ctrl-auto-btn" onclick="toggleAuto()" title="Toggle auto-advance">
+      <div class="dot"></div>
+      <span id="auto-label">Auto</span>
+    </button>
+  </div>
+</div>
+
+<script>
+  /* ── State ───────────────────────────────────────────────────────────── */
+  const slides    = Array.from(document.querySelectorAll('.slide'));
+  const total     = slides.length;
+  let cur         = 0;
+  let isPlaying   = false;
+  let muted       = false;
+  let autoAdvance = true;
+  let rate        = 1.0;
+  let autoTimer   = null;
+  let synth       = window.speechSynthesis || null;
+  let voices      = [];
+  let ctrlHideTimer = null;
+
+  /* ── Narration scripts ───────────────────────────────────────────────── */
+  const NARRATIONS = [
+    /* 1 */ "Welcome to Perch — smart desk booking for the hybrid era. Built during this hackathon, Perch is an enterprise-ready workplace intelligence platform powered by Claude AI. Over the next few minutes let me walk you through what we built, and why it matters.",
+    /* 2 */ "The numbers tell the story. 68 percent of office space sits underutilised post-pandemic. Employees waste over 12 minutes per day just finding a desk. And at over eight thousand pounds per empty desk per year in central London, this is both a productivity problem and a real financial one. The booking experience should be so smooth it becomes invisible — and the data it generates should make the business smarter.",
+    /* 3 */ "We built ten capabilities in one cohesive platform. Smart AI desk booking that recommends your ideal desk. Walk-in auto-booking via proximity detection. Friction-free changes — shorten, swap, or hand over in seconds. Team coordination with request-and-approve flows. A live visual floor plan. Anchor day policy enforcement with push notifications. An AI chat assistant for natural language booking. Admin analytics on occupancy and compliance. Claude AI workplace analysis. And a user feedback loop so the platform improves continuously.",
+    /* 4 */ "The booking engine genuinely thinks ahead. Smart desk scoring matches your preferred neighbourhood, desk features, and whether teammates are booked nearby. Anchor Day Policy lets admins configure expected office days per team and per site — the union of personal, team, and site settings creates each person's effective anchor days, and the app alerts you to any gaps in the next 14 days. Walk-in auto-booking triggers when you're within 300 metres of the office. And changing or handing over a booking is a single tap — freed capacity returns to the pool instantly.",
+    /* 5 */ "The admin console turns booking data into real decisions. Occupancy trends over 30 days, no-show rates by team, desk utilisation by neighbourhood, anchor day compliance scores — all from live booking data. The AI analysis feature is a highlight: paste your Anthropic API key, click Run, and Claude analyses 30 days of bookings returning what's working well, areas of concern, and concrete recommendations. Floor plans are uploaded directly in the admin console and assigned to teams — no code changes needed.",
+    /* 6 */ "We built the hackathon version to run anywhere with zero cloud dependencies. Pure static HTML, CSS, and JavaScript. LocalStorage holds all the data. A 50-line Node.js server proxies the Anthropic API. It runs on any laptop in under 30 seconds. But the architecture was designed from the start to scale to production. The same SPA frontend connects directly to Azure Static Web Apps, Cosmos DB for the data layer, Azure Functions for the API, and real Azure Active Directory for single sign-on. The frontend ships unchanged — only the data and auth layers are swapped.",
+    /* 7 */ "The production architecture is fully Azure-native with defence in depth at every layer. Users connect through Azure Front Door which provides WAF protection, DDoS defence, rate limiting, and TLS 1.3 termination. The SPA is hosted on Azure Static Web Apps on a global CDN. Business logic runs in Azure Functions. The platform services layer includes Azure Active Directory for identity and MFA, Cosmos DB for multi-region data, Key Vault for secrets, SignalR for real-time updates, Application Insights for monitoring, and the Anthropic Claude API for AI features. Everything is deployed via GitHub Actions CI/CD with Infrastructure as Code.",
+    /* 8 */ "Security is Zero Trust by design — not retrofitted afterwards. Azure Active Directory with SAML and OIDC enforces MFA and Conditional Access for every login. Three RBAC roles — User, Manager, and Admin — govern every action. All data is TLS 1.3 in transit and AES-256 at rest. Secrets never leave Key Vault. All events stream to Azure Monitor with Sentinel SIEM alerting. The WAF enforces the OWASP 3.2 rule set with private endpoints meaning no database is ever public. GDPR compliance is built in with data minimisation, a right-to-erasure API, and 13-month retention policies.",
+    /* 9 */ "Azure Static Web Apps gives us a global CDN with under 50 millisecond time-to-first-byte from anywhere in the UK. Automatic SSL, zero configuration. A push to main deploys in under 60 seconds via GitHub Actions with preview environments for every pull request. Azure Functions scales to zero when idle — no wasted cost — then scales to thousands of concurrent requests in seconds. The total monthly cost for 50 users is around £120, with the majority going to Azure AD Premium P1 for MFA and Conditional Access.",
+    /* 10 */ "The roadmap shows Perch as a platform, not just an app. Phase 1 replaces localStorage with Cosmos DB, wires up real Azure AD single sign-on, and deploys to production. Phase 2 adds Outlook and Teams calendar integration. Phase 3 brings IoT occupancy sensors and a native PWA with offline support. Phase 4 introduces machine learning to predict anchor day no-shows 48 hours in advance for proactive re-allocation, and integrates with facilities management systems. The open SPA architecture means each phase ships independently — no big-bang rewrites required.",
+    /* 11 */ "Perch wins on three pillars. Frictionless by design: walk-in booking, one-tap changes, an AI chat so natural you forget you're using a booking system. Data that drives decisions: occupancy trends and AI-powered recommendations that tell you not just what's happening, but what to do about it. And built for enterprise from day one: Zero Trust security, Azure AD SSO, GDPR-ready data model, RBAC, and audit logging — designed in, not bolted on. 50 users, 3 sites, 6 teams, 31 desks. Built in a hackathon. Ready for production.",
+    /* 12 */ "And now let's see it in action. The app is running at localhost 3000. Sign in as any of 50 realistic users across London, Edinburgh, and Leeds. Book a desk, coordinate a team booking, run Claude AI analysis, or try the mobile device preview to see how the app looks on a phone. Start the server with node server.js — and let's explore Perch together.",
+  ];
+
+  /* ── Animatable element selector ─────────────────────────────────────── */
+  const ANIM_SEL = '.feat, .sec-item, .rm-item, .stat, .arch-layer, .compare-col, .card-glass, .url-chip, .gh-link';
+
+  /* ── Navigation ──────────────────────────────────────────────────────── */
+  function go(delta) {
+    stopSpeech();
+    clearAutoTimer();
+    const next = ((cur + delta) % total + total) % total;
+    activateSlide(next);
+    if (isPlaying) speakSlide(cur);
+  }
+
+  function activateSlide(n) {
+    const prev = slides[cur];
+    cur = n;
+    const slide = slides[cur];
+
+    // Reset animation on prev slide's items
+    prev.classList.remove('active');
+    prev.querySelectorAll(ANIM_SEL).forEach(el => {
+      el.style.animation = 'none';
+      el.style.animationDelay = '';
+    });
+
+    slide.classList.add('active');
+
+    // Force reflow then stagger-animate items in new slide
+    slide.offsetHeight;
+    const items = Array.from(slide.querySelectorAll(ANIM_SEL));
+    items.forEach((el, i) => {
+      el.style.animation = '';
+      el.style.animationDelay = (0.32 + i * 0.09) + 's';
+    });
+
+    updateHUD();
+  }
+
+  function updateHUD() {
+    const pct = ((cur + 1) / total * 100).toFixed(2) + '%';
+    document.getElementById('prog-fill').style.width     = pct;
+    document.getElementById('ctrl-mini-fill').style.width = pct;
+    document.getElementById('ctrl-slide-num').textContent  = (cur + 1) + ' / ' + total;
+    document.getElementById('ctrl-slide-title').textContent = slides[cur].dataset.title || '';
+  }
+
+  /* ── Speech synthesis ────────────────────────────────────────────────── */
+  function loadVoices() {
+    if (!synth) return;
+    voices = synth.getVoices();
+    if (!voices.length && synth.onvoiceschanged !== undefined) {
+      synth.onvoiceschanged = () => { voices = synth.getVoices(); };
+    }
+  }
+
+  function pickVoice() {
+    // Prefer a local, natural-sounding English voice
+    return voices.find(v => v.lang === 'en-GB' && v.localService) ||
+           voices.find(v => v.lang.startsWith('en') && v.localService) ||
+           voices.find(v => v.lang.startsWith('en')) ||
+           (voices.length ? voices[0] : null);
+  }
+
+  function speakSlide(idx) {
+    if (!synth || muted) {
+      if (autoAdvance) scheduleAutoAdvance(NARRATIONS[idx]);
+      return;
+    }
+    const text = NARRATIONS[idx] || '';
+    synth.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.rate = rate;
+    utter.pitch = 1;
+    const v = pickVoice();
+    if (v) utter.voice = v;
+    utter.onstart = () => {
+      document.getElementById('ctrl-waveform').classList.remove('silent');
+      document.getElementById('ctrl-waveform').classList.add('speaking');
+    };
+    utter.onend = () => {
+      document.getElementById('ctrl-waveform').classList.remove('speaking');
+      document.getElementById('ctrl-waveform').classList.add('silent');
+      if (autoAdvance && isPlaying && cur < total - 1) {
+        autoTimer = setTimeout(() => go(1), 1400);
+      } else if (autoAdvance && isPlaying && cur === total - 1) {
+        // End of deck — stop
+        isPlaying = false;
+        updatePlayBtn();
+      }
+    };
+    utter.onerror = () => {
+      document.getElementById('ctrl-waveform').classList.add('silent');
+    };
+    synth.speak(utter);
+    showNarrToast(text);
+  }
+
+  function stopSpeech() {
+    if (synth) synth.cancel();
+    document.getElementById('ctrl-waveform').classList.add('silent');
+    document.getElementById('ctrl-waveform').classList.remove('speaking');
+  }
+
+  function scheduleAutoAdvance(text) {
+    // Fallback timing when muted: ~145 words per minute
+    const words = (text || '').split(/\s+/).length;
+    const ms = Math.max(4000, Math.round((words / 145) * 60000 / rate));
+    autoTimer = setTimeout(() => {
+      if (cur < total - 1) go(1);
+      else { isPlaying = false; updatePlayBtn(); }
+    }, ms);
+  }
+
+  function clearAutoTimer() {
+    if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
+  }
+
+  /* ── Play / Pause ────────────────────────────────────────────────────── */
+  function togglePlay() {
+    isPlaying = !isPlaying;
+    updatePlayBtn();
+    if (isPlaying) {
+      speakSlide(cur);
+    } else {
+      stopSpeech();
+      clearAutoTimer();
+    }
+  }
+
+  function updatePlayBtn() {
+    document.getElementById('play-icon').style.display  = isPlaying ? 'none'  : '';
+    document.getElementById('pause-icon').style.display = isPlaying ? '' : 'none';
+  }
+
+  /* ── Controls ────────────────────────────────────────────────────────── */
+  function setSpeed(s) {
+    rate = s;
+    document.querySelectorAll('.ctrl-speed-btn').forEach(b => {
+      b.classList.toggle('active', parseFloat(b.dataset.speed) === s);
+    });
+    // Restart current utterance at new rate if playing
+    if (isPlaying && synth && !muted) {
+      stopSpeech();
+      speakSlide(cur);
+    }
+  }
+
+  function toggleMute() {
+    muted = !muted;
+    const btn = document.getElementById('ctrl-mute-btn');
+    btn.classList.toggle('active', !muted);
+    document.getElementById('mute-label').textContent = muted ? 'Muted' : 'Narration';
+    if (isPlaying) {
+      stopSpeech();
+      clearAutoTimer();
+      speakSlide(cur);
+    }
+  }
+
+  function toggleAuto() {
+    autoAdvance = !autoAdvance;
+    const btn = document.getElementById('ctrl-auto-btn');
+    btn.classList.toggle('active', autoAdvance);
+    document.getElementById('auto-label').textContent = autoAdvance ? 'Auto' : 'Manual';
+    if (!autoAdvance) clearAutoTimer();
+  }
+
+  /* ── Narration toast ─────────────────────────────────────────────────── */
+  let toastHideTimer = null;
+  function showNarrToast(text) {
+    if (muted) return;
+    const el = document.getElementById('narr-toast');
+    // Show first ~120 chars as a caption
+    const preview = text.length > 120 ? text.slice(0, 117) + '…' : text;
+    el.textContent = preview;
+    el.classList.add('visible');
+    clearTimeout(toastHideTimer);
+    toastHideTimer = setTimeout(() => el.classList.remove('visible'), 5000);
+  }
+
+  /* ── Control bar auto-hide ───────────────────────────────────────────── */
+  function showCtrlBar() {
+    document.getElementById('ctrl-bar').classList.remove('hidden-bar');
+    clearTimeout(ctrlHideTimer);
+    ctrlHideTimer = setTimeout(() => {
+      if (isPlaying) document.getElementById('ctrl-bar').classList.add('hidden-bar');
+    }, 4000);
+  }
+
+  document.addEventListener('mousemove', showCtrlBar);
+  document.addEventListener('keydown', showCtrlBar);
+  document.getElementById('ctrl-bar').addEventListener('mouseenter', () => {
+    clearTimeout(ctrlHideTimer);
+    document.getElementById('ctrl-bar').classList.remove('hidden-bar');
+  });
+
+  /* ── Keyboard ────────────────────────────────────────────────────────── */
+  document.addEventListener('keydown', e => {
+    if (['ArrowRight','ArrowDown'].includes(e.key)) { e.preventDefault(); go(1); }
+    if (['ArrowLeft','ArrowUp'].includes(e.key))    { e.preventDefault(); go(-1); }
+    if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  });
+
+  /* ── Click deck to advance ───────────────────────────────────────────── */
+  document.getElementById('deck').addEventListener('click', e => {
+    if (!e.target.closest('a') && !e.target.closest('button')) go(1);
+  });
+
+  /* ── Touch swipe ─────────────────────────────────────────────────────── */
+  let tx = 0;
+  document.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, { passive: true });
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - tx;
+    if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  /* ── Init ────────────────────────────────────────────────────────────── */
+  loadVoices();
+  // Kick off entrance animations on slide 1
+  slides[0].querySelectorAll(ANIM_SEL).forEach((el, i) => {
+    el.style.animationDelay = (0.32 + i * 0.09) + 's';
+  });
+  updateHUD();
+</script>
+</body>
+</html>
