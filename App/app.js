@@ -256,9 +256,26 @@ function getWorkingStatus(user, dateStr) {
   return user.defaultWorkingPattern?.[dayKey(dateStr)] || 'remote';
 }
 
+function loadAnchorDayConfig() {
+  try {
+    const s = JSON.parse(localStorage.getItem(ADMIN_SETTINGS_KEY) || 'null');
+    return s?.anchorDayConfig || null;
+  } catch { return null; }
+}
+
+function getEffectiveAnchorDays(user) {
+  const config = loadAnchorDayConfig();
+  const days = new Set(user.anchorDays || []);
+  if (config) {
+    (config.byTeam?.[user.team]     || []).forEach(d => days.add(d));
+    (config.bySite?.[user.location] || []).forEach(d => days.add(d));
+  }
+  return [...days];
+}
+
 function isAnchorDay(user, dateStr) {
   const name = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][parseDate(dateStr).getDay()];
-  return (user.anchorDays || []).includes(name);
+  return getEffectiveAnchorDays(user).includes(name);
 }
 
 function initials(name) {

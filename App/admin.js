@@ -78,6 +78,7 @@ function defaultSettings() {
       proximityRadiusM: 300,
     },
     disabledDesks: [],
+    anchorDayConfig: { bySite: {}, byTeam: {} },
     buildings: ['London HQ'],
     floorPlans: [
       { id:'fp-ground', name:'Ground Floor', building:'London HQ', floorKey:'ground', assignedTeams:[], imageUrl:'/floorplans/ground.png' },
@@ -106,7 +107,10 @@ function loadSettings() {
       capacity:     { ...d.capacity,     ...s.capacity },
       office:       { ...d.office,       ...s.office },
       autoBook:     { ...d.autoBook,     ...s.autoBook },
-      disabledDesks:  s.disabledDesks  || [],
+      disabledDesks:   s.disabledDesks  || [],
+      anchorDayConfig: s.anchorDayConfig
+        ? { bySite: { ...s.anchorDayConfig.bySite }, byTeam: { ...s.anchorDayConfig.byTeam } }
+        : d.anchorDayConfig,
       buildings:      s.buildings      || d.buildings,
       floorPlans:     s.floorPlans     || d.floorPlans,
       neighbourhoods: s.neighbourhoods || d.neighbourhoods,
@@ -224,6 +228,7 @@ function navigate(view) {
     feedback:       renderAdminFeedback,
     aianalysis:     renderAiAnalysis,
     rules:          renderRules,
+    anchordays:     renderAnchorDays,
     deskconfig:     renderDeskConfig,
     floorplans:     renderFloorPlans,
     officesettings: renderOfficeSettings,
@@ -1521,6 +1526,114 @@ function removeBuilding(name) {
   saveSettings(s);
   toast('Building removed');
   renderNeighbourhoods();
+}
+
+// ── Anchor Days ───────────────────────────────────────────────────────────
+
+const ANCHOR_DAYS    = ['Monday','Tuesday','Wednesday','Thursday','Friday'];
+const ANCHOR_DAY_SHORT = { Monday:'Mon', Tuesday:'Tue', Wednesday:'Wed', Thursday:'Thu', Friday:'Fri' };
+
+function renderAnchorDays() {
+  const s        = loadSettings();
+  const cfg      = s.anchorDayConfig;
+  const allTeams = [...new Set(USERS_DATA.map(u => u.team))].sort();
+  const allSites = [...new Set(USERS_DATA.map(u => u.location))].sort();
+
+  function dayPickerHtml(scopeId, selectedDays) {
+    return `<div class="day-picker">` + ANCHOR_DAYS.map(d => `
+      <label class="day-pick-btn${(selectedDays||[]).includes(d) ? ' active' : ''}">
+        <input type="checkbox" value="${d}" ${(selectedDays||[]).includes(d) ? 'checked' : ''}
+               onchange="anchorDayToggle(${JSON.stringify(scopeId)},${JSON.stringify(d)},this.checked,this)">
+        ${ANCHOR_DAY_SHORT[d]}
+      </label>`).join('') + `</div>`;
+  }
+
+  document.getElementById('view-anchordays').innerHTML = `
+    <div class="page-header">
+      <h1>Anchor Days</h1>
+      <p>Set which days each site and team are expected in the office. Team days and site days both apply — the effective anchor days for a user are the union of their personal, team, and site settings.</p>
+    </div>
+
+    <div class="card one-col" style="margin-bottom:16px">
+      <div class="card-header">
+        <span class="card-title">By Site</span>
+        <span style="font-size:12px;color:var(--text-muted)">Applies to all staff at each location</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="admin-table">
+          <thead><tr>
+            <th>Location</th><th>Staff</th><th>Anchor Days</th>
+          </tr></thead>
+          <tbody>
+            ${allSites.map(site => {
+              const count = USERS_DATA.filter(u => u.location === site).length;
+              return `<tr>
+                <td style="font-weight:600">${escHtml(site)}</td>
+                <td style="color:var(--text-secondary)">${count}</td>
+                <td>${dayPickerHtml('site:' + site, cfg.bySite[site])}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card one-col">
+      <div class="card-header">
+        <span class="card-title">By Team</span>
+        <span style="font-size:12px;color:var(--text-muted)">Added on top of site anchor days</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="admin-table">
+          <thead><tr>
+            <th>Team</th><th>Members</th><th>Team Anchor Days</th><th>Also from site</th>
+          </tr></thead>
+          <tbody>
+            ${allTeams.map(team => {
+              const members  = USERS_DATA.filter(u => u.team === team);
+              const siteDays = [...new Set(
+                members.flatMap(u => cfg.bySite[u.location] || [])
+              )];
+              const siteLabel = siteDays.length
+                ? siteDays.map(d => `<span class="anchor-day-tag">${ANCHOR_DAY_SHORT[d]||d}</span>`).join('')
+                : `<span style="font-size:12px;color:var(--text-muted)">None configured</span>`;
+              return `<tr>
+                <td style="font-weight:600">${escHtml(team)}</td>
+                <td style="color:var(--text-secondary)">${members.length}</td>
+                <td>${dayPickerHtml('team:' + team, cfg.byTeam[team])}</td>
+                <td>${siteLabel}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function anchorDayToggle(scopeId, day, checked, checkboxEl) {
+  const s   = loadSettings();
+  const cfg = s.anchorDayConfig;
+
+  if (scopeId.startsWith('site:')) {
+    const site = scopeId.slice(5);
+    const days = new Set(cfg.bySite[site] || []);
+    checked ? days.add(day) : days.delete(day);
+    cfg.bySite[site] = [...days];
+  } else if (scopeId.startsWith('team:')) {
+    const team = scopeId.slice(5);
+    const days = new Set(cfg.byTeam[team] || []);
+    checked ? days.add(day) : days.delete(day);
+    cfg.byTeam[team] = [...days];
+  }
+
+  s.anchorDayConfig = cfg;
+  saveSettings(s);
+
+  checkboxEl?.closest('label')?.classList.toggle('active', checked);
+
+  // Refresh the "Also from site" column live when a site row changes
+  if (scopeId.startsWith('site:')) renderAnchorDays();
 }
 
 // ── Floor Plan Management ─────────────────────────────────────────────────

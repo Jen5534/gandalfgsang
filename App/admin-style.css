@@ -737,6 +737,48 @@
   flex-shrink: 0;
 }
 
+/* ── Anchor Days ────────────────────────────────────────────────────── */
+.day-picker {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+.day-pick-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 30px;
+  border-radius: 6px;
+  border: 1.5px solid var(--border);
+  background: #fff;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s, color 0.1s;
+  user-select: none;
+}
+.day-pick-btn:hover { border-color: var(--primary); color: var(--primary); }
+.day-pick-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.day-pick-btn input[type=checkbox] { display: none; }
+
+.anchor-day-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+  margin-right: 3px;
+}
+
 /* ── Floor Plan Management ──────────────────────────────────────────── */
 .fp-admin-grid {
   display: grid;
