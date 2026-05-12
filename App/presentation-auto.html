@@ -425,7 +425,7 @@
 <section class="slide dark" id="s12" data-title="Security & Hosting">
   <div class="inner">
     <div class="eyebrow">Enterprise Security &amp; Hosting</div>
-    <div class="h2">Zero Trust. <span class="accent">Defence in depth.</span> ~£74/month for 45,000 users.</div>
+    <div class="h2">Zero Trust. <span class="accent">Defence in depth.</span> ~£133/month for 45,000 users.</div>
     <div class="bar"></div>
     <div class="cols-2" style="gap:20px;align-items:stretch">
       <div style="display:flex;flex-direction:column;gap:9px">
@@ -447,12 +447,12 @@
           <div style="font-size:11px;font-weight:700;color:var(--green-glow);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Estimated Monthly Cost (45,000 users)</div>
           <div style="display:flex;flex-direction:column;gap:5px;font-size:12px">
             <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px"><span>Azure Static Web Apps Standard (×2 apps)</span><span style="color:var(--green-glow)">~£14</span></div>
-            <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px"><span>Azure SQL S2 — 250GB storage</span><span style="color:var(--green-glow)">~£59</span></div>
-            <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px"><span>Azure Functions (Consumption)</span><span style="color:var(--green-glow)">~£1</span></div>
+            <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px"><span>Azure SQL S3 — 100 DTUs, 250GB storage †</span><span style="color:var(--green-glow)">~£118</span></div>
+            <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px"><span>Azure Functions (Consumption) — ~1.7M calls/mo</span><span style="color:var(--green-glow)">~£1</span></div>
             <div style="display:flex;justify-content:space-between;color:var(--text);border-bottom:1px solid rgba(255,255,255,0.07);padding-bottom:4px"><span>Azure AD / Entra ID P1 *</span><span style="color:var(--green-glow)">£0</span></div>
-            <div style="display:flex;justify-content:space-between;color:var(--green-glow);font-weight:700;padding-top:4px"><span>Total estimate</span><span>~£74/mo</span></div>
+            <div style="display:flex;justify-content:space-between;color:var(--green-glow);font-weight:700;padding-top:4px"><span>Total estimate</span><span>~£133/mo</span></div>
           </div>
-          <div style="margin-top:8px;font-size:10.5px;color:var(--slate);line-height:1.5">* Entra ID P1 (MFA, Conditional Access) is included in Microsoft 365 E3/E5 — no additional cost. App Insights within free tier (5 GB/mo).</div>
+          <div style="margin-top:8px;font-size:10.5px;color:var(--slate);line-height:1.5">* Entra ID P1 included in M365 E3/E5. App Insights within free tier (5 GB/mo). † S3 required: peak Monday load (~6 users/sec) drives ~100–125 DB queries/sec — S2 (50 DTUs) insufficient.</div>
         </div>
       </div>
     </div>
