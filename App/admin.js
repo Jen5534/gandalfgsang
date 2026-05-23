@@ -1544,8 +1544,8 @@ function renderAnchorDays() {
   function dayPickerHtml(scopeId, selectedDays) {
     return `<div class="day-picker">` + ANCHOR_DAYS.map(d => `
       <label class="day-pick-btn${(selectedDays||[]).includes(d) ? ' active' : ''}">
-        <input type="checkbox" value="${d}" ${(selectedDays||[]).includes(d) ? 'checked' : ''}
-               onchange="anchorDayToggle(${JSON.stringify(scopeId)},${JSON.stringify(d)},this.checked,this)">
+        <input type="checkbox" value="${d}" data-scopeid="${escHtml(scopeId)}" ${(selectedDays||[]).includes(d) ? 'checked' : ''}
+               onchange="anchorDayToggle(this.dataset.scopeid, this.value, this.checked, this)">
         ${ANCHOR_DAY_SHORT[d]}
       </label>`).join('') + `</div>`;
   }
