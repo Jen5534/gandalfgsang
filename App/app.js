@@ -934,8 +934,7 @@ function renderComfortProfile() {
       </div>
       ${hasPrefs ? `<p style="font-size:12px;color:var(--text-muted);margin-top:14px">Desks matching your preferences are highlighted when booking.</p>` : ''}
     </div>
-  </div>
-  ${typeof renderExtPrefsSection === 'function' ? renderExtPrefsSection() : ''}`;
+  </div>`;
 }
 
 // ── Dashboard ──────────────────────────────────────────────────────────────
@@ -4676,6 +4675,8 @@ function renderProfileView() {
         ${toggleRow('dualMonitor',   'Dual Monitor',   'Two screens to work at your best',     prefs.dualMonitor)}
       </div>
     </div>
+
+    ${typeof renderExtPrefsSection === 'function' ? renderExtPrefsSection() : ''}
 
     <div class="card" style="margin-bottom:16px">
       <div class="card-header"><span class="card-title">Location Preferences</span></div>
