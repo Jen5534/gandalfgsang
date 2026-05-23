@@ -2811,7 +2811,20 @@ function renderSeatingRules() {
         </div>
         <div class="field-group" style="margin-bottom:16px">
           <label class="field-label">Reason <span style="font-weight:400;color:var(--text-muted)">(optional — visible to admins only)</span></label>
-          <input type="text" id="sep-reason" class="field-input" placeholder="e.g. Ongoing conflict, performance concern…" maxlength="200">
+          <select id="sep-reason-select" class="field-input" onchange="toggleSepReasonOther(this.value)">
+            <option value="">— Select reason —</option>
+            <option>Team & Collaboration</option>
+            <option>Personality & Interpersonal Conflicts</option>
+            <option>Disability & Physical Accessibility</option>
+            <option>Mental Health & Sensory Needs</option>
+            <option>Health & Medical Conditions</option>
+            <option>Productivity & Work Style</option>
+            <option>Personal Comfort & Convenience</option>
+            <option>Life Circumstances</option>
+            <option>Practical & Logistical</option>
+            <option value="other">Other</option>
+          </select>
+          <input type="text" id="sep-reason-other" class="field-input" placeholder="Enter custom reason" maxlength="200" style="display:none;margin-top:10px">
         </div>
         <button class="btn btn-primary" onclick="addSeparationRule()">Add Rule</button>
       </div>
@@ -2834,10 +2847,13 @@ function renderSeatingRules() {
 function addSeparationRule() {
   const userAId = document.getElementById('sep-userA').value;
   const userBId = document.getElementById('sep-userB').value;
-  const reason  = document.getElementById('sep-reason').value.trim();
+  const selectedReason = document.getElementById('sep-reason-select').value;
+  const otherReason = document.getElementById('sep-reason-other').value.trim();
+  const reason = selectedReason === 'other' ? otherReason : selectedReason;
 
   if (!userAId || !userBId) { toast('Please select both people', 'error'); return; }
   if (userAId === userBId)  { toast('Cannot add a rule between the same person', 'error'); return; }
+  if (selectedReason === 'other' && !otherReason) { toast('Please enter a custom reason for Other', 'error'); return; }
 
   const existing = loadSeparationRules();
   const dupe = existing.some(r =>
@@ -2863,6 +2879,12 @@ function deleteSeparationRule(id) {
   saveSeparationRules(rules);
   toast('Rule removed', 'success');
   renderSeatingRules();
+}
+
+function toggleSepReasonOther(value) {
+  const otherInput = document.getElementById('sep-reason-other');
+  if (!otherInput) return;
+  otherInput.style.display = value === 'other' ? 'block' : 'none';
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
