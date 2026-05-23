@@ -77,7 +77,9 @@ function defaultSettings() {
       enableOnProximity: true,
       proximityRadiusM: 300,
     },
+    deskFeatureOverrides: {},
     disabledDesks: [],
+    teams: [...new Set(USERS_DATA.map(u => u.team))].sort(),
     anchorDayConfig: { bySite: {}, byTeam: {} },
     buildings: ['London HQ'],
     floorPlans: [
@@ -107,7 +109,9 @@ function loadSettings() {
       capacity:     { ...d.capacity,     ...s.capacity },
       office:       { ...d.office,       ...s.office },
       autoBook:     { ...d.autoBook,     ...s.autoBook },
+      deskFeatureOverrides: s.deskFeatureOverrides || {},
       disabledDesks:   s.disabledDesks  || [],
+      teams:            s.teams          || d.teams,
       anchorDayConfig: s.anchorDayConfig
         ? { bySite: { ...s.anchorDayConfig.bySite }, byTeam: { ...s.anchorDayConfig.byTeam } }
         : d.anchorDayConfig,
@@ -155,6 +159,18 @@ function pct(n, total) {
 
 function deskInfo(id)  { return DESKS.find(d => d.id === id) || null; }
 function userInfo(id)  { return USERS_DATA.find(u => u.id === id) || null; }
+function getDeskFeatures(deskId) {
+  const s = loadSettings();
+  const override = s.deskFeatureOverrides?.[deskId];
+  if (Array.isArray(override)) return override;
+  const desk = deskInfo(deskId);
+  return desk ? desk.features : [];
+}
+function saveDeskFeatures(deskId, features) {
+  const s = loadSettings();
+  s.deskFeatureOverrides = { ...s.deskFeatureOverrides, [deskId]: features };
+  saveSettings(s);
+}
 
 function initials(name) { return name.split(' ').map(p => p[0]).join('').toUpperCase().slice(0,2); }
 function avatarColor(name) {
@@ -234,6 +250,7 @@ function navigate(view) {
     deskconfig:     renderDeskConfig,
     floorplans:     renderFloorPlans,
     officesettings: renderOfficeSettings,
+    teamsettings:   renderTeamSettings,
   };
   try {
     renderers[view]?.();
@@ -245,6 +262,16 @@ function navigate(view) {
       </div>`;
   }
 }
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('.desk-edit-features');
+  if (!button) return;
+  event.preventDefault();
+  const deskId = button.dataset.deskId;
+  if (!deskId) return;
+  toast(`Opening editor for ${deskId}`);
+  showDeskFeatureEditor(deskId);
+});
 
 // ── Shared helpers ─────────────────────────────────────────────────────────
 
@@ -997,12 +1024,13 @@ function renderDeskConfig() {
                 </td>
                 <td>
                   <div style="display:flex;gap:3px;flex-wrap:wrap">
-                    ${desk.features.map(f => `<span style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px">${featureLabel(f)}</span>`).join('')}
-                    ${desk.features.length === 0 ? '<span style="font-size:11px;color:var(--text-muted)">Standard</span>' : ''}
+                    ${getDeskFeatures(desk.id).map(f => `<span style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px">${featureLabel(f)}</span>`).join('')}
+                    ${getDeskFeatures(desk.id).length === 0 ? '<span style="font-size:11px;color:var(--text-muted)">Standard</span>' : ''}
                   </div>
                 </td>
                 <td><span class="desk-status-badge ${disabled ? 'desk-status-disabled' : 'desk-status-active'}">${disabled ? 'Disabled' : 'Active'}</span></td>
                 <td>
+                  <button type="button" class="btn-table btn-table-secondary desk-edit-features" data-desk-id="${desk.id}" onclick="showDeskFeatureEditor('${desk.id}')">Edit features</button>
                   ${disabled
                     ? `<button class="btn-table btn-table-success" onclick="toggleDesk('${desk.id}', false)">Enable</button>`
                     : `<button class="btn-table btn-table-danger" onclick="toggleDesk('${desk.id}', true)">Disable</button>`}
@@ -1011,10 +1039,94 @@ function renderDeskConfig() {
             }).join('')}
           </tbody>
         </table>
+        <div id="desk-feature-editor-container"></div>
       </div>
     </div>
   `;
+
+  document.querySelectorAll('#view-deskconfig .desk-edit-features').forEach(button => {
+    button.addEventListener('click', () => showDeskFeatureEditor(button.dataset.deskId));
+  });
 }
+
+function closeDeskFeatureEditor() {
+  const modal = document.getElementById('desk-feature-editor-modal');
+  if (modal) modal.remove();
+  const editorRow = document.querySelector('.desk-feature-editor-panel');
+  if (editorRow) editorRow.remove();
+  const editorContainer = document.getElementById('desk-feature-editor-container');
+  if (editorContainer) editorContainer.innerHTML = '';
+}
+
+function showDeskFeatureEditor(deskId) {
+  const desk = deskInfo(deskId);
+  if (!desk) return;
+  closeDeskFeatureEditor();
+  const currentFeatures = getDeskFeatures(deskId);
+  const options = ['window-seat','quiet-area','standing-desk','dual-monitor','near-team','accessible-desk'];
+  const editorHtml = `
+    <tr class="desk-feature-editor-panel">
+      <td colspan="6" style="padding:0;border:none">
+        <div class="card one-col" style="margin:16px 0 0 0">
+          <div class="card-header">
+            <span class="card-title">Edit ${desk.id} Features</span>
+          </div>
+          <div class="card-body" style="padding:20px">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px">
+              ${options.map(feature => `
+                <label style="display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:${currentFeatures.includes(feature) ? 'rgba(16,185,129,0.08)' : 'transparent'};">
+                  <input type="checkbox" name="desk-feature" value="${feature}" ${currentFeatures.includes(feature) ? 'checked' : ''}>
+                  ${featureLabel(feature)}
+                </label>
+              `).join('')}
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <button class="btn btn-primary" onclick="saveDeskFeatureChanges('${desk.id}')">Save features</button>
+              <button class="btn btn-secondary" onclick="closeDeskFeatureEditor();renderDeskConfig()">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </td>
+    </tr>
+  `;
+
+  const row = document.querySelector(`#view-deskconfig .desk-edit-features[data-desk-id="${deskId}"]`)?.closest('tr');
+  if (row) {
+    row.insertAdjacentHTML('afterend', editorHtml);
+    return;
+  }
+
+  const editorContainer = document.getElementById('desk-feature-editor-container');
+  if (editorContainer) {
+    editorContainer.innerHTML = editorHtml;
+    return;
+  }
+
+  const modal = document.createElement('div');
+  modal.id = 'desk-feature-editor-modal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.35);z-index:10000';
+  modal.innerHTML = `
+    <div style="width:100%;max-width:760px;">
+      <table style="width:100%;border-collapse:collapse"><tbody>${editorHtml}</tbody></table>
+    </div>
+  `;
+  modal.addEventListener('click', event => {
+    if (event.target === modal) closeDeskFeatureEditor();
+  });
+  document.body.appendChild(modal);
+}
+
+function saveDeskFeatureChanges(deskId) {
+  const selected = Array.from(document.querySelectorAll('.desk-feature-editor-panel input[name="desk-feature"]:checked, #desk-feature-editor-container input[name="desk-feature"]:checked, #desk-feature-editor-modal input[name="desk-feature"]:checked'))
+    .map(el => el.value);
+  saveDeskFeatures(deskId, selected);
+  closeDeskFeatureEditor();
+  toast(`Features saved for ${deskId}`);
+  renderDeskConfig();
+}
+
+window.showDeskFeatureEditor = showDeskFeatureEditor;
+window.saveDeskFeatureChanges = saveDeskFeatureChanges;
 
 function toggleDesk(deskId, disable) {
   const s = loadSettings();
@@ -1182,6 +1294,104 @@ function saveCapacitySettings() {
   saveSettings(s);
   toast('Capacity settings saved');
   renderOfficeSettings();
+}
+
+function renderTeamSettings() {
+  const s = loadSettings();
+  const teams = s.teams || [];
+  document.getElementById('view-teamsettings').innerHTML = `
+    <div class="page-header">
+      <h1>Team Management</h1>
+      <p>Create, rename, or delete team names used in the reporting and desk assignment experience.</p>
+    </div>
+
+    <div class="card one-col" style="margin-bottom:16px">
+      <div class="card-body" style="padding:24px">
+        <div class="settings-section">
+          <div class="settings-section-title">Add a new team</div>
+          <div class="field-row" style="align-items:flex-end;gap:12px;flex-wrap:wrap">
+            <div class="field-group" style="flex:1;min-width:220px">
+              <label class="field-label">Team name</label>
+              <input id="ts-new-team" class="field-input" type="text" placeholder="Enter team name">
+            </div>
+            <button class="btn btn-primary" style="height:40px" onclick="addTeam()">Add team</button>
+          </div>
+          <div class="field-hint">Team names are used for reporting and workspace assignment labels.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card one-col">
+      <div class="card-header"><span class="card-title">Existing teams</span></div>
+      <div class="card-body" style="padding:20px">
+        ${teams.length === 0 ? '<div style="color:var(--text-muted)">No teams have been defined yet.</div>' : teams.map((team, idx) => `
+          <div class="settings-row" style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+            <div style="font-weight:600">${escHtml(team)}</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-sm btn-secondary" onclick="editTeam(${idx})">Rename</button>
+              <button class="btn btn-sm btn-danger" onclick="deleteTeam(${idx})">Delete</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function saveTeamSettings(teams) {
+  const s = loadSettings();
+  s.teams = teams;
+  saveSettings(s);
+  toast('Team roster saved');
+}
+
+function addTeam() {
+  const input = document.getElementById('ts-new-team');
+  if (!input) return;
+  const name = input.value.trim();
+  if (!name) {
+    toast('Enter a team name first', 'danger');
+    return;
+  }
+  const s = loadSettings();
+  const teams = s.teams || [];
+  if (teams.includes(name)) {
+    toast('That team already exists', 'danger');
+    return;
+  }
+  teams.push(name);
+  teams.sort();
+  saveTeamSettings(teams);
+  input.value = '';
+  renderTeamSettings();
+}
+
+function editTeam(index) {
+  const s = loadSettings();
+  const teams = s.teams || [];
+  const currentName = teams[index];
+  if (!currentName) return;
+  const nextName = window.prompt('Rename team', currentName)?.trim();
+  if (!nextName || nextName === currentName) return;
+  if (teams.includes(nextName)) {
+    toast('A team with that name already exists', 'danger');
+    return;
+  }
+  teams[index] = nextName;
+  teams.sort();
+  saveTeamSettings(teams);
+  renderTeamSettings();
+}
+
+function deleteTeam(index) {
+  const s = loadSettings();
+  const teams = s.teams || [];
+  const team = teams[index];
+  if (!team) return;
+  if (!window.confirm(`Delete the team '${team}'? This cannot be undone.`)) return;
+  teams.splice(index, 1);
+  saveTeamSettings(teams);
+  renderTeamSettings();
 }
 
 // ── Chart helpers ──────────────────────────────────────────────────────────
