@@ -2902,4 +2902,12 @@ document.addEventListener('DOMContentLoaded', () => {
       navigate(el.dataset.view);
     });
   });
+
+  // Diagnostic: show a toast when any element with an inline onclick is clicked
+  document.addEventListener('click', e => {
+    const el = e.target.closest('[onclick]');
+    if (!el) return;
+    const attr = el.getAttribute('onclick') || '';
+    toast('Clicked element with onclick: ' + attr, 'info');
+  });
 });
