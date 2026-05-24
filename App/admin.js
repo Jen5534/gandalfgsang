@@ -2975,6 +2975,9 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('error', event => {
   // Ignore noisy ResizeObserver loop completion message
   if (event && event.message && event.message.includes('ResizeObserver loop completed')) return;
+  // Ignore injected lockdown/SES noise from external extensions/scripts
+  if (event && event.filename && event.filename.includes('lockdown-install.js')) return;
+  if (event && event.message && event.message.includes('SES_UNCAUGHT_EXCEPTION')) return;
   console.error('Global error caught', event.error || event.message, event);
   const target = document.getElementById('admin-app') || document.body;
   const msg = (event.error && event.error.stack) ? event.error.stack : (event.message || 'Unknown error');
