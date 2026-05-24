@@ -1,6 +1,41 @@
 // ── Constants ──────────────────────────────────────────────────────────────
 
 window.ADMIN_PIN = '1234';
+
+// Safe early globals: lightweight fallback so inline onclicks don't throw
+if (!window.doAdminLogin) {
+  window.doAdminLogin = function() {
+    const t = window.toast || ((m,ty) => console.log('[toast]', ty, m));
+    t('Attempting admin login', 'info');
+    const pinEl = document.getElementById('pin-input');
+    const pin = pinEl?.value?.trim?.() || '';
+    if (pin === window.ADMIN_PIN) {
+      t('Admin login OK', 'success');
+      const loginEl = document.getElementById('admin-login');
+      const appEl = document.getElementById('admin-app');
+      if (loginEl) loginEl.classList.add('hidden');
+      if (appEl) appEl.classList.remove('hidden');
+      try { if (typeof navigate === 'function') navigate('overview'); } catch (e) { /* ignore */ }
+    } else {
+      const errEl = document.getElementById('pin-error');
+      if (errEl) errEl.style.display = 'block';
+      if (pinEl) { pinEl.value = ''; pinEl.focus(); }
+    }
+  };
+}
+
+if (!window.adminLogout) {
+  window.adminLogout = function() {
+    const appEl = document.getElementById('admin-app');
+    const loginEl = document.getElementById('admin-login');
+    if (appEl) appEl.classList.add('hidden');
+    if (loginEl) loginEl.classList.remove('hidden');
+    const pinEl = document.getElementById('pin-input');
+    if (pinEl) pinEl.value = '';
+    const errEl = document.getElementById('pin-error');
+    if (errEl) errEl.style.display = 'none';
+  };
+}
 const BOOKINGS_KEY = 'findMyDesk_bookings';
 const ADMIN_SETTINGS_KEY = 'mdb_admin_settings';
 
