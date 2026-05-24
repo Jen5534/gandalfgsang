@@ -487,6 +487,87 @@ function renderOverview() {
   `;
 }
 
+// ── Desk Config ───────────────────────────────────────────────────────────
+
+function renderDeskConfig() {
+  const settings = loadSettings();
+
+  document.getElementById('view-deskconfig').innerHTML = `
+    <div class="page-header">
+      <h1>Desk Configuration</h1>
+      <p>Set equipment, attributes, and accessibility flags per desk</p>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+      <div class="card" style="padding:14px 18px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:26px;font-weight:700;color:var(--primary)">${DESKS.length - settings.disabledDesks.length}</div>
+        <div>
+          <div style="font-weight:600;font-size:13px">Active Desks</div>
+          <div style="font-size:12px;color:var(--text-muted)">Available to book</div>
+        </div>
+      </div>
+      <div class="card" style="padding:14px 18px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:26px;font-weight:700;color:var(--danger)">${settings.disabledDesks.length}</div>
+        <div>
+          <div style="font-weight:600;font-size:13px">Disabled Desks</div>
+          <div style="font-size:12px;color:var(--text-muted)">Not bookable</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card one-col">
+      <div class="card-header">
+        <span class="card-title">All Desks</span>
+        <div class="card-header-actions">
+          <button class="btn btn-sm btn-secondary" onclick="enableAllDesks()">Enable all</button>
+        </div>
+      </div>
+      <div class="card-body" style="padding:12px 20px">
+        <table class="admin-table">
+          <thead><tr>
+            <th>Desk ID</th><th>Floor</th><th>Neighbourhood</th><th>Features</th><th>Status</th><th>Action</th>
+          </tr></thead>
+          <tbody>
+            ${DESKS.map(desk => {
+              const disabled = settings.disabledDesks.includes(desk.id);
+              return `<tr style="${disabled ? 'opacity:0.6' : ''}">
+                <td style="font-weight:600;font-family:monospace">${desk.id}</td>
+                <td style="color:var(--text-secondary)">${desk.floor === 'ground' ? 'Ground' : 'First'}</td>
+                <td>
+                  <span class="nb-dot ${NB_COLOURS?.[desk.neighbourhood]?.dot || ''}"></span>
+                  ${desk.neighbourhood}
+                </td>
+                <td>
+                  <div style="display:flex;gap:3px;flex-wrap:wrap">
+                    ${getDeskFeatures(desk.id).map(f => `<span style="font-size:10px;padding:2px 5px;background:var(--bg);border:1px solid var(--border);border-radius:3px">${featureLabel(f)}</span>`).join('')}
+                    ${getDeskFeatures(desk.id).length === 0 ? '<span style="font-size:11px;color:var(--text-muted)">Standard</span>' : ''}
+                  </div>
+                </td>
+                <td><span class="desk-status-badge ${disabled ? 'desk-status-disabled' : 'desk-status-active'}">${disabled ? 'Disabled' : 'Active'}</span></td>
+                <td>
+                  <button type="button" class="btn-table btn-table-secondary desk-edit-features" data-desk-id="${desk.id}" onclick="showDeskFeatureEditor('${desk.id}')">Edit features</button>
+                  ${disabled
+                    ? `<button class="btn-table btn-table-success" onclick="toggleDesk('${desk.id}', false)">Enable</button>`
+                    : `<button class="btn-table btn-table-danger" onclick="toggleDesk('${desk.id}', true)">Disable</button>`}
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <div id="desk-feature-editor-container"></div>
+      </div>
+    </div>
+  `;
+
+  // attach any needed listeners
+  document.querySelectorAll('#view-deskconfig .desk-edit-features').forEach(button => {
+    button.addEventListener('click', e => {
+      e.preventDefault();
+      showDeskFeatureEditor(button.dataset.deskId);
+    });
+  });
+}
+
 // ── Occupancy Report ───────────────────────────────────────────────────────
 
 function setOccupancyTeam(team) {
