@@ -1,6 +1,6 @@
 // ── Constants ──────────────────────────────────────────────────────────────
 
-const ADMIN_PIN = '1234';
+window.ADMIN_PIN = '1234';
 const BOOKINGS_KEY = 'findMyDesk_bookings';
 const ADMIN_SETTINGS_KEY = 'mdb_admin_settings';
 
