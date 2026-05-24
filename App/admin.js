@@ -2609,7 +2609,8 @@ function runAllocationEngine(date) {
   powerBlocks.forEach(pb => (pb.deskIds || []).forEach(id => assignedDesks.add(id)));
 
   const settings = _aLoadAllocSettings();
-  const adminS = JSON.parse(localStorage.getItem(ADMIN_SETTINGS_KEY) || 'null');
+  let adminS = null;
+  try { adminS = JSON.parse(localStorage.getItem(ADMIN_SETTINGS_KEY) || 'null'); } catch { adminS = null; }
   const disabledDesks = adminS?.disabledDesks || [];
   const enabledDesks = DESKS.filter(d => !disabledDesks.includes(d.id));
   const walkInCount = Math.max(1, Math.round(enabledDesks.length * (settings.walkInPoolPct || 20) / 100));
