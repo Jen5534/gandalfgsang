@@ -207,15 +207,20 @@ function toast(msg, type = 'success') {
 // ── Auth ───────────────────────────────────────────────────────────────────
 
 function doAdminLogin() {
-  const pin = document.getElementById('pin-input').value.trim();
+  const pinEl = document.getElementById('pin-input');
+  const pin = pinEl?.value?.trim?.() || '';
+  console.log('doAdminLogin attempt, pin length:', pin.length);
+  toast('Attempting admin login', 'info');
   if (pin === ADMIN_PIN) {
+    toast('Admin login OK', 'success');
     document.getElementById('admin-login').classList.add('hidden');
     document.getElementById('admin-app').classList.remove('hidden');
     navigate('overview');
   } else {
+    console.warn('Admin login failed for pin length', pin.length);
     document.getElementById('pin-error').style.display = 'block';
-    document.getElementById('pin-input').value = '';
-    document.getElementById('pin-input').focus();
+    pinEl.value = '';
+    pinEl.focus();
   }
 }
 
