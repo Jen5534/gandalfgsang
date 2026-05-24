@@ -206,12 +206,12 @@ function toast(msg, type = 'success') {
 
 // ── Auth ───────────────────────────────────────────────────────────────────
 
-function doAdminLogin() {
+window.doAdminLogin = function() {
   const pinEl = document.getElementById('pin-input');
   const pin = pinEl?.value?.trim?.() || '';
   console.log('doAdminLogin attempt, pin length:', pin.length);
   toast('Attempting admin login', 'info');
-  if (pin === ADMIN_PIN) {
+  if (pin === window.ADMIN_PIN) {
     toast('Admin login OK', 'success');
     document.getElementById('admin-login').classList.add('hidden');
     document.getElementById('admin-app').classList.remove('hidden');
@@ -222,14 +222,14 @@ function doAdminLogin() {
     pinEl.value = '';
     pinEl.focus();
   }
-}
+};
 
-function adminLogout() {
+window.adminLogout = function() {
   document.getElementById('admin-app').classList.add('hidden');
   document.getElementById('admin-login').classList.remove('hidden');
   document.getElementById('pin-input').value = '';
   document.getElementById('pin-error').style.display = 'none';
-}
+};
 
 // ── Navigation ─────────────────────────────────────────────────────────────
 
