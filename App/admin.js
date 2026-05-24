@@ -2973,6 +2973,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Global error handlers to surface runtime errors in the admin UI for debugging
 window.addEventListener('error', event => {
+  // Ignore noisy ResizeObserver loop completion message
+  if (event && event.message && event.message.includes('ResizeObserver loop completed')) return;
   console.error('Global error caught', event.error || event.message, event);
   const target = document.getElementById('admin-app') || document.body;
   const msg = (event.error && event.error.stack) ? event.error.stack : (event.message || 'Unknown error');
@@ -2983,6 +2985,11 @@ window.addEventListener('error', event => {
 });
 
 window.addEventListener('unhandledrejection', event => {
+  // Ignore null reasons often emitted by external SES/lockdown scripts
+  if (event == null || event.reason == null) {
+    console.warn('Ignored unhandledrejection with null reason');
+    return;
+  }
   console.error('Unhandled rejection', event.reason);
   const el = document.createElement('div');
   el.style.cssText = 'padding:20px;background:#fff6f6;border:1px solid #ffcccc;color:#7f1d1d;font-family:monospace;white-space:pre-wrap;position:fixed;top:80px;left:20px;right:20px;z-index:100000;border-radius:6px';
