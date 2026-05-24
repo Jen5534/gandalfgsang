@@ -1577,7 +1577,7 @@ function renderNeighbourhoods() {
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
               ${escHtml(b)}
               ${buildings.length > 1
-                ? `<button class="chip-remove" onclick="removeBuilding(${JSON.stringify(b)})" title="Remove">×</button>`
+                ? `<button class="chip-remove" onclick='removeBuilding(${JSON.stringify(b)})' title="Remove">×</button>`
                 : ''}
             </span>
           `).join('')}
@@ -1633,8 +1633,8 @@ function nbCardHtml(nb, allTeams) {
             <div class="nb-card-meta">${escHtml(nb.building)}${floorLabel} · ${nb.deskIds.length} desk${nb.deskIds.length !== 1 ? 's' : ''}</div>
           </div>
           <div class="nb-card-actions">
-            <button class="btn-table" onclick="startEditNb(${JSON.stringify(nb.id)})">Edit</button>
-            <button class="btn-table btn-table-danger" onclick="deleteNb(${JSON.stringify(nb.id)})">Remove</button>
+            <button class="btn-table" onclick='startEditNb(${JSON.stringify(nb.id)})'>Edit</button>
+            <button class="btn-table btn-table-danger" onclick='deleteNb(${JSON.stringify(nb.id)})'>Remove</button>
           </div>
         </div>
         <div class="nb-card-teams">${teamChips}</div>
@@ -1726,7 +1726,7 @@ function nbFormHtml(editId, s, allTeams) {
       </div>
       <div class="settings-save-bar">
         <button class="btn btn-secondary" onclick="cancelNbEdit()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveNb(${JSON.stringify(editId)})">${isNew ? 'Add Neighbourhood' : 'Save Changes'}</button>
+        <button class="btn btn-primary" onclick='saveNb(${JSON.stringify(editId)})'>${isNew ? 'Add Neighbourhood' : 'Save Changes'}</button>
       </div>
     </div>
   `;
@@ -1995,8 +1995,8 @@ function fpCardHtml(plan) {
         </div>
         <div class="fp-admin-teams">${teamChips}</div>
         <div class="fp-admin-actions">
-          <button class="btn-table" onclick="startEditFp(${JSON.stringify(plan.id)})">Edit</button>
-          <button class="btn-table btn-table-danger" onclick="deleteFp(${JSON.stringify(plan.id)})">Delete</button>
+          <button class="btn-table" onclick='startEditFp(${JSON.stringify(plan.id)})'>Edit</button>
+          <button class="btn-table btn-table-danger" onclick='deleteFp(${JSON.stringify(plan.id)})'>Delete</button>
         </div>
       </div>
     </div>
@@ -2076,7 +2076,7 @@ function fpFormHtml(editId, s, allTeams) {
       </div>
       <div class="settings-save-bar">
         <button class="btn btn-secondary" onclick="cancelFpEdit()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveFp(${JSON.stringify(editId)})">${isNew ? 'Add Floor Plan' : 'Save Changes'}</button>
+        <button class="btn btn-primary" onclick='saveFp(${JSON.stringify(editId)})'>${isNew ? 'Add Floor Plan' : 'Save Changes'}</button>
       </div>
     </div>
   `;
