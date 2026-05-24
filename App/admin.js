@@ -959,28 +959,39 @@ function renderRules() {
 }
 
 function saveRules() {
-  const s = loadSettings();
-  s.bookingRules = {
-    maxDaysInAdvance:        parseInt(document.getElementById('s-maxDaysInAdvance').value) || 14,
-    maxBookingsPerWeek:      parseInt(document.getElementById('s-maxBookingsPerWeek').value) || 5,
-    cancellationCutoffHours: parseInt(document.getElementById('s-cancellationCutoffHours').value) || 0,
-    autoReleaseMinutes:      parseInt(document.getElementById('s-autoReleaseMinutes').value) || 30,
-    allowHalfDays:           document.getElementById('s-allowHalfDays').checked,
-    requireCheckIn:          document.getElementById('s-requireCheckIn').checked,
-  };
-  saveSettings(s);
-  toast('Booking rules saved');
-}
+  try {
+    const nameEl = document.getElementById('nf-name');
+    if (!nameEl) { toast('Neighbourhood form not found (nf-name)', 'error'); console.error('nf-name element missing'); return; }
+    const name = nameEl.value.trim();
+    if (!name) { toast('Please enter a neighbourhood name', 'error'); return; }
 
-// ── Settings: Desk Config ──────────────────────────────────────────────────
+    const buildingEl = document.getElementById('nf-building');
+    const colorEl = document.getElementById('nf-color');
+    if (!buildingEl || !colorEl) { toast('Neighbourhood form fields missing', 'error'); console.error('nf-building or nf-color missing', { buildingEl, colorEl }); return; }
 
-function renderDeskConfig() {
-  const settings = loadSettings();
+    const building      = buildingEl.value;
+    const color         = colorEl.value;
+    const assignedTeams = [...document.querySelectorAll('.nb-team-cb:checked')].map(cb => cb.value);
+    const deskIds       = [...document.querySelectorAll('.nb-desk-cb:checked')].map(cb => cb.value);
 
-  document.getElementById('view-deskconfig').innerHTML = `
-    <div class="page-header">
-      <h1>Desk Configuration</h1>
-      <p>Enable, disable, or inspect individual desks</p>
+    const s = loadSettings();
+
+    if (editId === 'new') {
+      s.neighbourhoods.push({ id: 'nb-' + Date.now(), name, building, color, deskIds, assignedTeams });
+      toast('Neighbourhood added');
+    } else {
+      const i = s.neighbourhoods.findIndex(n => n.id === editId);
+      if (i !== -1) s.neighbourhoods[i] = { ...s.neighbourhoods[i], name, building, color, deskIds, assignedTeams };
+      toast('Neighbourhood updated');
+    }
+
+    saveSettings(s);
+    nbEditId = null;
+    renderNeighbourhoods();
+  } catch (err) {
+    console.error('Error in saveNb', err);
+    toast('Error saving neighbourhood: ' + (err.message || ''), 'error');
+  }
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
