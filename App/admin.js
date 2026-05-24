@@ -2977,7 +2977,12 @@ window.addEventListener('error', event => {
   if (event && event.message && event.message.includes('ResizeObserver loop completed')) return;
   // Ignore injected lockdown/SES noise from external extensions/scripts
   if (event && event.filename && event.filename.includes('lockdown-install.js')) return;
+  if (event && event.error && event.error.stack && event.error.stack.includes('lockdown-install.js')) return;
   if (event && event.message && event.message.includes('SES_UNCAUGHT_EXCEPTION')) return;
+  if (event && event.filename && event.filename.endsWith('/admin.html') && event.error instanceof SyntaxError && event.error.stack && event.error.stack.includes('lockdown-install')) {
+    console.warn('Ignored injected admin.html SyntaxError from lockdown-install.js', event.message);
+    return;
+  }
   console.error('Global error caught', event.error || event.message, event);
   const target = document.getElementById('admin-app') || document.body;
   const msg = (event.error && event.error.stack) ? event.error.stack : (event.message || 'Unknown error');
