@@ -1032,7 +1032,6 @@ function saveRules() {
     console.error('Error in saveNb', err);
     toast('Error saving neighbourhood: ' + (err.message || ''), 'error');
   }
-  }
 }
 
 function closeDeskFeatureEditor() {
