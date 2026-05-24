@@ -6,11 +6,10 @@ window.ADMIN_PIN = '1234';
 if (!window.doAdminLogin) {
   window.doAdminLogin = function() {
     const t = window.toast || ((m,ty) => console.log('[toast]', ty, m));
-    t('Attempting admin login', 'info');
     const pinEl = document.getElementById('pin-input');
     const pin = pinEl?.value?.trim?.() || '';
     if (pin === window.ADMIN_PIN) {
-      t('Admin login OK', 'success');
+      // login success (no debug toast)
       const loginEl = document.getElementById('admin-login');
       const appEl = document.getElementById('admin-app');
       if (loginEl) loginEl.classList.add('hidden');
@@ -245,9 +244,8 @@ window.doAdminLogin = function() {
   const pinEl = document.getElementById('pin-input');
   const pin = pinEl?.value?.trim?.() || '';
   console.log('doAdminLogin attempt, pin length:', pin.length);
-  toast('Attempting admin login', 'info');
   if (pin === window.ADMIN_PIN) {
-    toast('Admin login OK', 'success');
+    // successful login
     document.getElementById('admin-login').classList.add('hidden');
     document.getElementById('admin-app').classList.remove('hidden');
     navigate('overview');
@@ -1653,8 +1651,8 @@ function nbFormHtml(editId, s, allTeams) {
   `;
 }
 
-function startAddNb()    { nbEditId = 'new'; toast('Opening neighbourhood editor'); renderNeighbourhoods(); scrollToForm(); }
-function startEditNb(id) { nbEditId = id;    toast('Editing neighbourhood'); renderNeighbourhoods(); scrollToForm(); }
+function startAddNb()    { nbEditId = 'new'; renderNeighbourhoods(); scrollToForm(); }
+function startEditNb(id) { nbEditId = id;    renderNeighbourhoods(); scrollToForm(); }
 function cancelNbEdit()  { nbEditId = null;  renderNeighbourhoods(); }
 
 function scrollToForm() {
@@ -1671,7 +1669,7 @@ function saveNb(editId) {
   const name = document.getElementById('nf-name').value.trim();
   if (!name) { toast('Please enter a neighbourhood name', 'error'); return; }
 
-  toast(`Saving neighbourhood: ${name}`);
+  // saving neighbourhood
 
   const building      = document.getElementById('nf-building').value;
   const color         = document.getElementById('nf-color').value;
@@ -2888,11 +2886,5 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Diagnostic: show a toast when any element with an inline onclick is clicked
-  document.addEventListener('click', e => {
-    const el = e.target.closest('[onclick]');
-    if (!el) return;
-    const attr = el.getAttribute('onclick') || '';
-    toast('Clicked element with onclick: ' + attr, 'info');
-  });
+  // diagnostic listener removed
 });
