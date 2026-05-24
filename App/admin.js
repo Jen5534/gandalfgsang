@@ -2888,3 +2888,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // diagnostic listener removed
 });
+
+// Global error handlers to surface runtime errors in the admin UI for debugging
+window.addEventListener('error', event => {
+  console.error('Global error caught', event.error || event.message, event);
+  const target = document.getElementById('admin-app') || document.body;
+  const msg = (event.error && event.error.stack) ? event.error.stack : (event.message || 'Unknown error');
+  const el = document.createElement('div');
+  el.style.cssText = 'padding:20px;background:#fff6f6;border:1px solid #ffcccc;color:#7f1d1d;font-family:monospace;white-space:pre-wrap;position:fixed;top:80px;left:20px;right:20px;z-index:100000;border-radius:6px';
+  el.textContent = 'Runtime error: ' + msg;
+  document.body.appendChild(el);
+});
+
+window.addEventListener('unhandledrejection', event => {
+  console.error('Unhandled rejection', event.reason);
+  const el = document.createElement('div');
+  el.style.cssText = 'padding:20px;background:#fff6f6;border:1px solid #ffcccc;color:#7f1d1d;font-family:monospace;white-space:pre-wrap;position:fixed;top:80px;left:20px;right:20px;z-index:100000;border-radius:6px';
+  el.textContent = 'Unhandled promise rejection: ' + (event.reason && event.reason.stack ? event.reason.stack : String(event.reason));
+  document.body.appendChild(el);
+});
