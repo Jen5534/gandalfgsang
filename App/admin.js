@@ -1668,8 +1668,8 @@ function nbFormHtml(editId, s, allTeams) {
   `;
 }
 
-function startAddNb()    { nbEditId = 'new'; renderNeighbourhoods(); scrollToForm(); }
-function startEditNb(id) { nbEditId = id;    renderNeighbourhoods(); scrollToForm(); }
+function startAddNb()    { nbEditId = 'new'; toast('Opening neighbourhood editor'); renderNeighbourhoods(); scrollToForm(); }
+function startEditNb(id) { nbEditId = id;    toast('Editing neighbourhood'); renderNeighbourhoods(); scrollToForm(); }
 function cancelNbEdit()  { nbEditId = null;  renderNeighbourhoods(); }
 
 function scrollToForm() {
@@ -1685,6 +1685,8 @@ function selectNbColor(el, color) {
 function saveNb(editId) {
   const name = document.getElementById('nf-name').value.trim();
   if (!name) { toast('Please enter a neighbourhood name', 'error'); return; }
+
+  toast(`Saving neighbourhood: ${name}`);
 
   const building      = document.getElementById('nf-building').value;
   const color         = document.getElementById('nf-color').value;
