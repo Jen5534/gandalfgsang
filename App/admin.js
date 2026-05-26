@@ -2968,10 +2968,67 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  // Easter egg: triple-click Lloyds logo for ripple effect
+  const logoImg = document.querySelector('.sidebar-logo-card img');
+  if (logoImg) {
+    let clickCount = 0;
+    let clickTimer = null;
+    logoImg.addEventListener('click', () => {
+      clickCount++;
+      if (clickTimer) clearTimeout(clickTimer);
+      clickTimer = setTimeout(() => { clickCount = 0; }, 300);
+      if (clickCount === 3) {
+        clickCount = 0;
+        spawnRippleEffect();
+      }
+    });
+  }
+
   // diagnostic listener removed
 });
 
-// Global error handlers to surface runtime errors in the admin UI for debugging
+// ── Easter Egg: Ripple Effect ──────────────────────────────────────────────
+
+function spawnRippleEffect() {
+  const ripple = document.createElement('div');
+  ripple.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(6, 182, 212, 0.6);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 50000;
+    animation: rippleWave 3s ease-out forwards;
+  `;
+  document.body.appendChild(ripple);
+  
+  // Spawn additional ripples with slight delays for layered effect
+  for (let i = 1; i <= 2; i++) {
+    setTimeout(() => {
+      const r = document.createElement('div');
+      r.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 20px;
+        height: 20px;
+        border: 2px solid rgba(6, 182, 212, ${0.4 - i * 0.1});
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: ${50000 - i};
+        animation: rippleWave 3s ease-out forwards;
+      `;
+      document.body.appendChild(r);
+    }, i * 150);
+  }
+}
+
+// ── Global error handlers to surface runtime errors in the admin UI for debugging
 window.addEventListener('error', event => {
   // Ignore noisy ResizeObserver loop completion message
   if (event && event.message && event.message.includes('ResizeObserver loop completed')) return;

@@ -1,5 +1,18 @@
 /* Admin-specific styles — builds on style.css variables */
 
+@keyframes rippleWave {
+  0% {
+    width: 20px;
+    height: 20px;
+    opacity: 1;
+  }
+  100% {
+    width: 600px;
+    height: 600px;
+    opacity: 0;
+  }
+}
+
 .field-label {
   display: block;
   font-size: 12px;
