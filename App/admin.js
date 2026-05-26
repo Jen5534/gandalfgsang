@@ -2968,6 +2968,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  document.querySelectorAll('.login-logo img, .sidebar-header img').forEach(el => {
+    el.addEventListener('click', e => spawnRippleEffect(e.clientX, e.clientY));
+  });
+
   // Easter egg: triple-click Lloyds logo for ripple effect
   const logoImg = document.querySelector('.sidebar-logo-card img');
   if (logoImg) {
@@ -2989,12 +2993,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Easter Egg: Ripple Effect ──────────────────────────────────────────────
 
-function spawnRippleEffect() {
+function spawnRippleEffect(x = null, y = null) {
+  const position = x !== null && y !== null
+    ? `left: ${x}px; top: ${y}px;`
+    : 'left: 50%; top: 50%;';
+
   const ripple = document.createElement('div');
   ripple.style.cssText = `
     position: fixed;
-    top: 50%;
-    left: 50%;
+    ${position}
     width: 20px;
     height: 20px;
     border: 2px solid rgba(6, 182, 212, 0.6);
@@ -3002,7 +3009,7 @@ function spawnRippleEffect() {
     transform: translate(-50%, -50%);
     pointer-events: none;
     z-index: 50000;
-    animation: rippleWave 3s ease-out forwards;
+    animation: rippleWave 1.4s ease-out forwards;
   `;
   document.body.appendChild(ripple);
   
@@ -3012,8 +3019,7 @@ function spawnRippleEffect() {
       const r = document.createElement('div');
       r.style.cssText = `
         position: fixed;
-        top: 50%;
-        left: 50%;
+        ${position}
         width: 20px;
         height: 20px;
         border: 2px solid rgba(6, 182, 212, ${0.4 - i * 0.1});
@@ -3021,7 +3027,7 @@ function spawnRippleEffect() {
         transform: translate(-50%, -50%);
         pointer-events: none;
         z-index: ${50000 - i};
-        animation: rippleWave 3s ease-out forwards;
+        animation: rippleWave 1.4s ease-out forwards;
       `;
       document.body.appendChild(r);
     }, i * 150);

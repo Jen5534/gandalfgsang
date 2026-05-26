@@ -79,6 +79,26 @@ body {
   letter-spacing: 0.06em;
 }
 
+.login-logo img,
+.sidebar-header img {
+  cursor: pointer;
+}
+
+@keyframes rippleWave {
+  0% {
+    width: 20px;
+    height: 20px;
+    opacity: 0.75;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  100% {
+    width: 600px;
+    height: 600px;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
 .login-subtitle {
   color: var(--text-secondary);
   margin-bottom: 28px;

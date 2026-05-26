@@ -3459,6 +3459,9 @@ async function init() {
   document.querySelectorAll('.nav-item').forEach(el => {
     el.addEventListener('click', e => { e.preventDefault(); navigate(el.dataset.view); });
   });
+  document.querySelectorAll('.login-logo img, .sidebar-header img').forEach(el => {
+    el.addEventListener('click', e => spawnRippleEffect(e.clientX, e.clientY));
+  });
   ssoLogin();
 }
 
@@ -4725,6 +4728,31 @@ function cycleFontSize() {
     const lbl = btn.querySelector('.a11y-font-label');
     if (lbl) lbl.textContent = labels[next];
   }
+}
+
+function spawnRippleEffect(x = null, y = null, color = 'rgba(6, 182, 212, 0.7)') {
+  const position = x !== null && y !== null
+    ? `left: ${x}px; top: ${y}px;`
+    : 'left: 50%; top: 50%;';
+
+  const ripple = document.createElement('div');
+  ripple.style.cssText = `
+    position: fixed;
+    ${position}
+    width: 20px;
+    height: 20px;
+    border: 2px solid ${color};
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    z-index: 50000;
+    animation: rippleWave 1.2s ease-out forwards;
+  `;
+  document.body.appendChild(ripple);
+
+  setTimeout(() => {
+    if (ripple.parentNode) ripple.parentNode.removeChild(ripple);
+  }, 1400);
 }
 
 function initAccessibility() {
